@@ -1,0 +1,30 @@
+{
+  "name": "trufflehog-firefox",
+  "version": "0.0.2",
+  "description": "Browser extension that sniffs out leaked API keys, secrets, endpoints, and credentials on web pages using regex pattern matching. Detects exposed source maps and cloud storage buckets.",
+  "main": "background.js",
+  "scripts": {
+    "lint": "echo 'No linter configured'",
+    "test": "echo 'No test framework configured'"
+  },
+  "keywords": [
+    "security",
+    "secrets",
+    "credentials",
+    "api-keys",
+    "browser-extension",
+    "firefox",
+    "chrome",
+    "trufflehog"
+  ],
+  "author": "Truffle Security (Fork by Cr0wtl3r)",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Cr0wtl3r/Trufflehog-Extension"
+  },
+  "license": "Apache-2.0",
+  "type": "commonjs",
+  "devDependencies": {
+    "sharp": "^0.34.5"
+  }
+}

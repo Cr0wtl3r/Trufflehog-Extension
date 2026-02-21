@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Trufflehog – Full Report</title>
+    <link rel="stylesheet" href="popup.css">
+    <style>
+        body { width: 100%; min-width: 600px; min-height: 400px; padding: 24px; }
+        .report-header { margin-bottom: 24px; padding-bottom: 16px; border-bottom: 1px solid var(--border); }
+        .report-header h1 { margin: 0 0 8px; font-size: 1.5rem; }
+        .report-section { margin-bottom: 28px; }
+        .report-section h2 { margin: 0 0 16px; font-size: 1.1rem; color: var(--accent); }
+        .origin-block { margin-bottom: 20px; padding: 16px; background: var(--bg-secondary); border-radius: var(--radius); border: 1px solid var(--border); }
+        .origin-block h3 { margin: 0 0 12px; font-size: 0.95rem; color: var(--text-secondary); word-break: break-all; }
+        .finding-card, .endpoint-card { padding: 12px 14px; margin-bottom: 8px; background: var(--bg-primary); border-radius: var(--radius-sm); border-left: 4px solid var(--accent); font-size: 13px; }
+        .finding-card .type { font-weight: 600; color: var(--accent); margin-bottom: 4px; }
+        .finding-card .match { font-family: monospace; word-break: break-all; color: var(--text-primary); }
+        .finding-card .meta { font-size: 0.8rem; color: var(--text-muted); margin-top: 6px; }
+        .endpoint-card .url { font-family: monospace; word-break: break-all; }
+        .endpoint-card .src { font-size: 0.8rem; color: var(--text-muted); margin-top: 4px; }
+        .empty-msg { padding: 24px; text-align: center; color: var(--text-muted); }
+        .nav-back { display: inline-flex; align-items: center; gap: 6px; margin-bottom: 16px; color: var(--accent); cursor: pointer; font-size: 0.9rem; }
+        .nav-back:hover { text-decoration: underline; }
+    </style>
+</head>
+<body>
+    <div class="nav-back" id="navBack" data-i18n="navBack">← Close</div>
+    <header class="report-header">
+        <h1>Trufflehog – Full Report</h1>
+        <p class="subtitle" id="reportSubtitle">All findings and endpoints</p>
+    </header>
+    <section class="report-section" id="findingsSection">
+        <h2 data-i18n="findingsSection">Findings (Credentials)</h2>
+        <div id="findingsContent"></div>
+    </section>
+    <section class="report-section" id="endpointsSection">
+        <h2 data-i18n="endpointsSection">Endpoints</h2>
+        <div id="endpointsContent"></div>
+    </section>
+    <script src="findings.js"></script>
+</body>
+</html>

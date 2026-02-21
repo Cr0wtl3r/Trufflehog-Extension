@@ -1,84 +1,169 @@
-<!-- Copyright 2017 The Chromium Authors. All rights reserved.
-Use of this source code is governed by a BSD-style license that can be
-found in the LICENSE file. -->
-<html>
-  <head>
-      <title>Trufflehog</title>
-      <link href="popup.css" rel="stylesheet" type="text/css">
-  </head>
-  <body style="width: 300px;">
-      <img src='./icon.png' style="width: 128px; margin: auto; display: block;">
-      <div>
-          <h3>Generic Secrets</h3>
-          <label class="switch">
-              <input type="checkbox" id="generics">
-              <span class="slider"></span>
-          </label>
-      </div>
-      <div>
-          <h3>Specific Secrets</h3>
-          <label class="switch">
-              <input type="checkbox" id="specifics">
-              <span class="slider"></span>
-          </label>
-      </div>
-      <div>
-          <h3>AWS Keys</h3>
-          <label class="switch">
-              <input type="checkbox" id="aws">
-              <span class="slider"></span>
-          </label>
-      </div>
-      <div style="margin-bottom: 10px">
-          <h3>Check for .env files</h3>
-          <h5>(can trigger WAF bans)</h5>
-          <label class="switch">
-              <input type="checkbox" id="checkEnv">
-              <span class="slider"></span>
-          </label>
-      </div>
-      <div style="margin-bottom: 10px">
-          <h3>Check for .git dirs</h3>
-          <h5>(can trigger WAF bans)</h5>
-          <label class="switch">
-              <input type="checkbox" id="checkGit">
-              <span class="slider"></span>
-          </label>
-      </div>
-      <div style="margin-bottom: 10px">
-          <h3>Alerts</h3>
-          <label class="switch">
-              <input type="checkbox" id="alerts">
-              <span class="slider"></span>
-          </label>
-      </div>
-      <div>
-          <button class="accordion"><h3>Origin Deny List</h3></button>
-          <div class="panel">
-              Comma Seperated
-              <textarea style="width:100%" id="denyList"></textarea>
-          </div>
-      </div>
-       <div>
-          <button class="accordion"><h3>Findings</h3></button>
-          <div class="panel">
-              <button style="margin-top: 10px" id="clearOriginFindings">Clear This Origin</button>
-              <button style="margin-top: 10px" id="clearAllFindings">Clear All Origins</button>
-              <button style="margin-top: 10px" id="downloadAllFindings">Download All Findings</button>
-              <h3>Findings for this origin</h3>
-              <ul id="findingList">
+<!DOCTYPE html>
+<html lang="en">
 
-              </ul>
-          </div>
-      </div>
-      <div>
-          <button class="accordion"><h3>Open Lots Of Tabs</h3></button>
-          <div class="panel">
-              Comma Seperated
-              <button style="margin-top: 10px" id="openTabs">Open Tabs</button>
-              <textarea style="width:100%" id="tabList" placeholder="https://google.com,https://yahoo.com"></textarea>
-          </div>
-      </div>
-   <script src="popup.js"></script>
-  </body>
+<head>
+    <meta charset="UTF-8">
+    <title>Trufflehog</title>
+    <link rel="stylesheet" href="popup.css">
+</head>
+
+<body>
+    <header class="header">
+        <div class="header-top">
+            <img src="assets/icon48.png" alt="Trufflehog" class="logo">
+            <div class="lang-select-wrap">
+                <select id="langSelect" class="lang-select" title="Language / Idioma">
+                    <option value="en">English</option>
+                    <option value="pt">Português</option>
+                </select>
+            </div>
+        </div>
+        <h1 class="title">Trufflehog</h1>
+        <p class="subtitle" data-i18n="subtitle">Sniffing out credentials</p>
+    </header>
+
+    <main class="main">
+        <section class="section">
+            <h2 class="section-title" data-i18n="sectionDetection">Detection</h2>
+            <div class="toggle-row">
+                <span class="toggle-label" data-i18n="genericSecrets">Generic Secrets</span>
+                <label class="switch">
+                    <input type="checkbox" id="generics">
+                    <span class="slider"></span>
+                </label>
+            </div>
+            <div class="toggle-row">
+                <span class="toggle-label" data-i18n="highEntropy">High Entropy</span>
+                <label class="switch">
+                    <input type="checkbox" id="highEntropy">
+                    <span class="slider"></span>
+                </label>
+            </div>
+            <span class="toggle-hint" data-i18n="entropyWarning">High rate of false positives</span>
+            <div class="toggle-row">
+                <span class="toggle-label" data-i18n="codeHeuristics">Code Heuristics</span>
+                <label class="switch">
+                    <input type="checkbox" id="codeHeuristics">
+                    <span class="slider"></span>
+                </label>
+            </div>
+            <span class="toggle-hint" data-i18n="codeHeuristicsWarning">Detects TODOs, AI-generated code, hardcoded
+                passwords</span>
+            <div class="toggle-row">
+                <span class="toggle-label" data-i18n="checkEndpoints">Extract Endpoints</span>
+                <label class="switch">
+                    <input type="checkbox" id="checkEndpoints">
+                    <span class="slider"></span>
+                </label>
+            </div>
+            <div class="toggle-row">
+                <span class="toggle-label" data-i18n="specificSecrets">Specific Secrets</span>
+                <label class="switch">
+                    <input type="checkbox" id="specifics">
+                    <span class="slider"></span>
+                </label>
+            </div>
+            <div class="toggle-row">
+                <span class="toggle-label" data-i18n="awsKeys">AWS Keys</span>
+                <label class="switch">
+                    <input type="checkbox" id="aws">
+                    <span class="slider"></span>
+                </label>
+            </div>
+            <div class="toggle-row">
+                <span class="toggle-label" data-i18n="checkEnv">Check .env files</span>
+                <label class="switch">
+                    <input type="checkbox" id="checkEnv">
+                    <span class="slider"></span>
+                </label>
+            </div>
+            <span class="toggle-hint" data-i18n="wafWarning">Can trigger WAF bans</span>
+            <div class="toggle-row">
+                <span class="toggle-label" data-i18n="checkGit">Check .git dirs</span>
+                <label class="switch">
+                    <input type="checkbox" id="checkGit">
+                    <span class="slider"></span>
+                </label>
+            </div>
+            <span class="toggle-hint" data-i18n="wafWarning">Can trigger WAF bans</span>
+            <div class="toggle-row">
+                <span class="toggle-label" data-i18n="notifications">Notifications</span>
+                <label class="switch">
+                    <input type="checkbox" id="alerts">
+                    <span class="slider"></span>
+                </label>
+            </div>
+        </section>
+
+        <details class="accordion" data-accordion="denyList">
+            <summary class="accordion-trigger" data-i18n="originDenyList">Origin Deny List</summary>
+            <div class="accordion-content">
+                <label class="input-label" data-i18n="commaOrigins" for="denyList">Comma separated origins</label>
+                <textarea id="denyList" class="textarea" rows="3" data-i18n-placeholder="placeholderOrigins"></textarea>
+            </div>
+        </details>
+
+        <details class="accordion" data-accordion="matchDenyList">
+            <summary class="accordion-trigger" data-i18n="matchDenyList">Match Deny List</summary>
+            <div class="accordion-content">
+                <label class="input-label" data-i18n="matchDenyListDesc" for="matchDenyListInput">Comma separated
+                    strings to ignore in findings</label>
+                <textarea id="matchDenyListInput" class="textarea" rows="3"
+                    data-i18n-placeholder="placeholderMatchDeny"></textarea>
+            </div>
+        </details>
+
+        <details class="accordion" data-accordion="findings">
+            <summary class="accordion-trigger" data-i18n="findings">Findings</summary>
+            <div class="accordion-content">
+                <div class="button-group">
+                    <button type="button" class="btn btn-secondary" id="clearOriginFindings"
+                        data-i18n="clearThisOrigin">Clear This Origin</button>
+                    <button type="button" class="btn btn-secondary" id="clearAllFindings" data-i18n="clearAll">Clear
+                        All</button>
+                    <button type="button" class="btn btn-primary" id="downloadAllFindings"
+                        data-i18n="downloadCsv">Download CSV</button>
+                    <button type="button" class="btn btn-primary" id="openFindingsPage" data-i18n="viewFullReport">View
+                        Full Report</button>
+                </div>
+                <p class="findings-hint" data-i18n="clickToViewDetails">Click an item to view the full report</p>
+                <h3 class="findings-title" data-i18n="findingsForOrigin">Findings for this origin</h3>
+                <div id="findingListEmpty" class="findings-empty" data-i18n="noFindings">No findings for this origin
+                </div>
+                <ul id="findingList" class="findings-list"></ul>
+            </div>
+        </details>
+
+        <details class="accordion" data-accordion="endpointsList">
+            <summary class="accordion-trigger" data-i18n="endpoints">Endpoints</summary>
+            <div class="accordion-content">
+                <div class="button-group">
+                    <button type="button" class="btn btn-secondary" id="clearOriginEndpoints"
+                        data-i18n="clearThisOrigin">Clear This Origin</button>
+                    <button type="button" class="btn btn-primary" id="downloadEndpointsCsv"
+                        data-i18n="downloadCsv">Download CSV</button>
+                    <button type="button" class="btn btn-primary" id="openFindingsPageFromEndpoints"
+                        data-i18n="viewFullReport">View Full Report</button>
+                </div>
+                <p class="findings-hint" data-i18n="clickToViewDetails">Click an item to view the full report</p>
+                <h3 class="findings-title" data-i18n="endpointsForOrigin">Endpoints for this origin</h3>
+                <div id="endpointListEmpty" class="findings-empty" data-i18n="noEndpoints">No endpoints found</div>
+                <ul id="endpointList" class="findings-list"></ul>
+            </div>
+        </details>
+
+        <details class="accordion" data-accordion="tabs">
+            <summary class="accordion-trigger" data-i18n="openMultipleTabs">Open Multiple Tabs</summary>
+            <div class="accordion-content">
+                <label class="input-label" data-i18n="commaUrls" for="tabList">Comma separated URLs</label>
+                <textarea id="tabList" class="textarea" rows="2" data-i18n-placeholder="placeholderUrls"></textarea>
+                <button type="button" class="btn btn-primary btn-full" id="openTabs" data-i18n="openTabs">Open
+                    Tabs</button>
+            </div>
+        </details>
+    </main>
+
+    <script src="popup.js"></script>
+</body>
+
 </html>

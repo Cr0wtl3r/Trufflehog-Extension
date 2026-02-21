@@ -1,35 +1,21 @@
-// this is the background code...
+// Trufflehog Background Script
+// Compatible with Chrome and Firefox (WebExtensions API) — Manifest V3
 
-// listen for our browerAction to be clicked
-// for the current tab, inject the "inject.js" file & execute it
+const browserAPI = typeof browser !== 'undefined' ? browser : chrome;
 
-
-var currentTab;
-var version = "1.0";
-
-chrome.tabs.query( //get current Tab
-    {
-        currentWindow: true,
-        active: true
-    },
-    function(tabArray) {
-        currentTab = tabArray[0];
-        chrome.tabs.executeScript(currentTab.ib, {
-            file: 'inject.js'
-        });
+// First-run initialization
+browserAPI.storage.sync.get(['ranOnce'], function(result) {
+    if (!result?.ranOnce) {
+        browserAPI.storage.sync.set({ ranOnce: true });
+        browserAPI.storage.sync.set({ originDenyList: ["https://www.google.com"] });
+        browserAPI.storage.sync.set({ matchDenyList: [] });
     }
-)
-
-chrome.storage.sync.get(['ranOnce'], function(ranOnce) {
-    if (! ranOnce.ranOnce){
-        chrome.storage.sync.set({"ranOnce": true});
-        chrome.storage.sync.set({"originDenyList": ["https://www.google.com"]});
-    }
-
-})
+});
 
 
-let specifics = {
+// ─── Regex Pattern Sets ─────────────────────────────────────────────
+
+const specifics = {
     "Slack Token": "(xox[pboa]-[0-9]{12}-[0-9]{12}-[0-9]{12}-[a-z0-9]{32})",
     "RSA private key": "-----BEGIN RSA PRIVATE KEY-----",
     "SSH (DSA) private key": "-----BEGIN DSA PRIVATE KEY-----",
@@ -39,20 +25,31 @@ let specifics = {
     "AWS AppSync GraphQL Key": "da2-[a-z0-9]{26}",
     "Facebook Access Token": "EAACEdEose0cBA[0-9A-Za-z]+",
     "Facebook OAuth": "[fF][aA][cC][eE][bB][oO][oO][kK].{0,20}['|\"][0-9a-f]{32}['|\"]",
+    "GitHub Personal Access Token": "ghp_[a-zA-Z0-9]{36}",
+    "GitHub OAuth Access Token": "gho_[a-zA-Z0-9]{36}",
+    "GitHub Server-to-Server Token": "ghs_[a-zA-Z0-9]{36}",
+    "GitHub Refresh Token": "ghr_[a-zA-Z0-9]{36}",
+    "GitHub Fine-Grained PAT": "github_pat_[a-zA-Z0-9]{22}_[a-zA-Z0-9]{59}",
     "GitHub": "[gG][iI][tT][hH][uU][bB].{0,20}['|\"][0-9a-zA-Z]{35,40}['|\"]",
-   // "Google API Key": "AIza[0-9A-Za-z\\-_]{35}",
-   // "Google Cloud Platform API Key": "AIza[0-9A-Za-z\\-_]{35}",
-   // "Google Cloud Platform OAuth": "[0-9]+-[0-9A-Za-z_]{32}\\.apps\\.googleusercontent\\.com",
-   // "Google Drive API Key": "AIza[0-9A-Za-z\\-_]{35}",
-   // "Google Drive OAuth": "[0-9]+-[0-9A-Za-z_]{32}\\.apps\\.googleusercontent\\.com",
+    "OpenAI API Key (Classic)": "sk-[a-zA-Z0-9]{48}",
+    "OpenAI API Key (Project)": "sk-proj-[a-zA-Z0-9_-]{20,}",
+    "Anthropic Claude API Key": "sk-ant-api03-[a-zA-Z0-9\\-_]{70,90}",
+    "HuggingFace Access Token": "hf_[a-zA-Z]{34}",
+    "Cohere API Key": "[0-9a-zA-Z\\-]{39,40}",
+    "Google API Key": "AIza[0-9A-Za-z\\-_]{35}",
+    "Google Cloud Platform API Key": "AIza[0-9A-Za-z\\-_]{35}",
+    "Google Cloud Platform OAuth": "[0-9]+-[0-9A-Za-z_]{32}\\.apps\\.googleusercontent\\.com",
+    "Google Drive API Key": "AIza[0-9A-Za-z\\-_]{35}",
+    "Google Drive OAuth": "[0-9]+-[0-9A-Za-z_]{32}\\.apps\\.googleusercontent\\.com",
     "Google (GCP) Service-account": "\"type\": \"service_account\"",
-   // "Google Gmail API Key": "AIza[0-9A-Za-z\\-_]{35}",
-   // "Google Gmail OAuth": "[0-9]+-[0-9A-Za-z_]{32}\\.apps\\.googleusercontent\\.com",
-   // "Google OAuth Access Token": "ya29\\.[0-9A-Za-z\\-_]+",
-   // "Google YouTube API Key": "AIza[0-9A-Za-z\\-_]{35}",
-  //  "Google YouTube OAuth": "[0-9]+-[0-9A-Za-z_]{32}\\.apps\\.googleusercontent\\.com",
+    "Google Gmail API Key": "AIza[0-9A-Za-z\\-_]{35}",
+    "Google Gmail OAuth": "[0-9]+-[0-9A-Za-z_]{32}\\.apps\\.googleusercontent\\.com",
+    "Google OAuth Access Token": "ya29\\.[0-9A-Za-z\\-_]+",
+    "Google YouTube API Key": "AIza[0-9A-Za-z\\-_]{35}",
+    "Google YouTube OAuth": "[0-9]+-[0-9A-Za-z_]{32}\\.apps\\.googleusercontent\\.com",
     "Heroku API Key": "[hH][eE][rR][oO][kK][uU].{0,20}[0-9A-F]{8}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{12}",
     "Json Web Token" : "eyJhbGciOiJ",
+    "Json Web Token (Bombado)" : "ey[A-Za-z0-9_-]{10,}\\.[A-Za-z0-9_-]{10,}\\.[A-Za-z0-9_-]{10,}",
     "MailChimp API Key": "[0-9a-f]{32}-us[0-9]{1,2}",
     "Mailgun API Key": "key-[0-9a-zA-Z]{32}",
     "Password in URL": "[a-zA-Z]{3,10}://[^/\\s:@]{3,20}:[^/\\s:@]{3,20}@.{1,100}[\"'\\s]",
@@ -65,251 +62,352 @@ let specifics = {
     "Square OAuth Secret": "sq0csp-[0-9A-Za-z\\-_]{43}",
     "Telegram Bot API Key": "[0-9]+:AA[0-9A-Za-z\\-_]{33}",
     "Twilio API Key": "SK[0-9a-fA-F]{32}",
-    "Github Auth Creds": "https:\/\/[a-zA-Z0-9]{40}@github\.com",
-   // "Twitter Access Token": "[tT][wW][iI][tT][tT][eE][rR].*[1-9][0-9]+-[0-9a-zA-Z]{40}",
-   // "Twitter OAuth": "[tT][wW][iI][tT][tT][eE][rR].*['|\"][0-9a-zA-Z]{35,44}['|\"]"
-}
+    "Github Auth Creds": "https:\\/\\/[a-zA-Z0-9]{40}@github\\.com",
+    "Twitter Access Token": "[tT][wW][iI][tT][tT][eE][rR].*[1-9][0-9]+-[0-9a-zA-Z]{40}",
+    "Twitter OAuth": "[tT][wW][iI][tT][tT][eE][rR].*['|\"][0-9a-zA-Z]{35,44}['|\"]",
+    "GitLab Personal Access Token": "glpat-[a-zA-Z0-9\\-]{20}",
+    "NPM Access Token": "npm_[a-zA-Z0-9]{36}",
+    "Docker Hub Token": "dckr_pat_[a-zA-Z0-9_-]{28}",
+    "Supabase API Key": "sbp_[a-zA-Z0-9]{40}",
+    "SendGrid API Key": "SG\\.[a-zA-Z0-9_-]{22}\\.[a-zA-Z0-9_-]{43}",
+    "DigitalOcean Personal Access Token": "dop_v1_[a-f0-9]{64}",
+    "CircleCI Access Token": "CCIPAT_[a-zA-Z0-9]{80}",
+    "Grafana API Key": "eyJrIjoi[a-zA-Z0-9]{70,90}",
+    "Snyk API Token": "[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}",
+    "Discord Bot Token": "[MNO][a-zA-Z0-9_-]{23,25}\\.[a-zA-Z0-9_-]{6}\\.[a-zA-Z0-9_-]{27}",
+    "Discord Webhook": "https://discord\\.com/api/webhooks/[0-9]{17,19}/[a-zA-Z0-9_-]{68}",
+    "Slack App-level Token": "xapp-[1-9][0-9]{10}-[0-9]{13}-[0-9]{13}-[a-z0-9]{64}",
+};
 
-let generics = {
+const codeHeuristics = {
+    "TODO Security/Sanitize": "(?i)\\bTODO\\b.{0,50}(sanitize|escape|role check|capability check|validate|security)",
+    "Code Generated by AI": "(?i)(generated by ai|chatgpt|github copilot|claude)",
+    "Insecure Code Flag": "(?i)(FIXME|HACK|BUG).{0,50}(auth|bypass|hardcode|insecure)",
+    "Hardcoded Password Variable": "(?i)(password|passwd|pwd)\\s*=\\s*['\"]([^'\"]+)['\"]"
+};
+
+const generics = {
     "Generic API Key": "[aA][pP][iI]_?[kK][eE][yY].{0,20}['|\"][0-9a-zA-Z]{32,45}['|\"]",
     "Generic Secret": "[sS][eE][cC][rR][eE][tT].{0,20}['|\"][0-9a-zA-Z]{32,45}['|\"]",
-}
+};
 
-let aws = {
+const highEntropy = {
+    "High Entropy (Possible Secret)": "(?<=[\"':=]\\s*)[A-Za-z0-9+\\/]{40,}={0,2}(?=[\"'\\s;])"
+};
+
+const aws = {
     "AWS API Key": "((?:A3T[A-Z0-9]|AKIA|AGPA|AIDA|AROA|AIPA|ANPA|ANVA|ASIA)[A-Z0-9]{16})",
-}
-
-let denyList = ["AIDAAAAAAAAAAAAAAAAA"]
-
-a = ""
-b = ""
+};
 
 
+// ─── Core Functions ──────────────────────────────────────────────────
 
-
-var checkData = function(data, src, regexes, fromEncoded=false, parentUrl=undefined, parentOrigin=undefined){
-    var findings = [];
-    for (let key in regexes){
-        let re = new RegExp(regexes[key])
-        let match = re.exec(data);
-        if (Array.isArray(match)){match = match.toString()}
-        if (denyList.includes(match)){
-            continue;
-        }
-        if (match){
-            let finding = {};
-            finding = {src: src, match:match, key:key, encoded:fromEncoded, parentUrl:parentUrl};
-            a = data;
-            b = re;
-            findings.push(finding);
-
-        }
-    }
-    if (findings){
-        chrome.storage.sync.get(["leakedKeys"], function(result) {
-            if (Array.isArray(result.leakedKeys) || ! result.leakedKeys){
-                var keys = {};
-            }else{
-                var keys = result.leakedKeys;
-            };
-            for (let finding of findings){
-                if(Array.isArray(keys[parentOrigin])){
-                    var newFinding = true;
-                    for (key of keys[parentOrigin]){
-                        if (key["src"] == finding["src"] && key["match"] == finding["match"] && key["key"] == finding["key"] && key["encoded"] == finding["encoded"] && key["parentUrl"] == finding["parentUrl"]){
-                            newFinding = false;
-                            break;
-                        }
-                    }
-                    if(newFinding){
-                        keys[parentOrigin].push(finding)
-                        chrome.storage.sync.set({"leakedKeys": keys}, function(){
-                            updateTabAndAlert(finding);
-                        });
-                    }
-                }else{
-                    keys[parentOrigin] = [finding];
-                    chrome.storage.sync.set({"leakedKeys": keys}, function(){
-                        updateTabAndAlert(finding);
-                    })
-                }
-             }
-        })
-    }
-    let decodedStrings = getDecodedb64(data);
-    for (encoded of decodedStrings){
-        checkData(encoded[1], src, regexes, encoded[0], parentUrl, parentOrigin);
-    }
-}
-var updateTabAndAlert = function(finding){
-    var key = finding["key"];
-    var src = finding["src"];
-    var match = finding["match"];
-    var fromEncoded = finding["encoded"];
-    chrome.storage.sync.get(["alerts"], function(result) {
-        console.log(result.alerts)
-        if (result.alerts == undefined || result.alerts){
-            if (fromEncoded){
-                alert(key + ": " + match + " found in " + src + " decoded from " + fromEncoded.substring(0,9) + "...");
-            }else{
-                alert(key + ": " + match + " found in " + src);
-            }
-        }
-    })
-    updateTab();
-}
-
-var updateTab = function(){
-     chrome.tabs.getSelected(null, function(tab) {
-        var tabId = tab.id;
-        var tabUrl = tab.url;
-        var origin = (new URL(tabUrl)).origin
-        chrome.storage.sync.get(["leakedKeys"], function(result) {
-            if (Array.isArray(result.leakedKeys[origin])){
-                var originKeys = result.leakedKeys[origin].length.toString();
-            }else{
-                var originKeys = "";
-            }
-            chrome.browserAction.setBadgeText({text: originKeys});
-            chrome.browserAction.setBadgeBackgroundColor({color: '#ff0000'});
-        })
+/**
+ * Builds the effective deny list by merging the hardcoded default
+ * with the user-configurable matchDenyList from storage.
+ */
+function getEffectiveDenyList(callback) {
+    const hardcoded = ["AIDAAAAAAAAAAAAAAAAA"];
+    browserAPI.storage.sync.get(["matchDenyList"], function(result) {
+        const userList = Array.isArray(result.matchDenyList) ? result.matchDenyList : [];
+        callback([...hardcoded, ...userList]);
     });
 }
 
-chrome.tabs.onActivated.addListener(function(activeInfo) {
+const checkData = function(data, src, regexes, denyList, fromEncoded = false, parentUrl = undefined, parentOrigin = undefined) {
+    const findings = [];
+    for (const key in regexes) {
+        const re = new RegExp(regexes[key]);
+        let match = re.exec(data);
+        if (Array.isArray(match)) { match = match.toString(); }
+        if (!match) continue;
+
+        // Check if match is in the deny list (exact or substring)
+        const isDenied = denyList.some(denied =>
+            match === denied || match.includes(denied)
+        );
+        if (isDenied) continue;
+
+        findings.push({ src, match, key, encoded: fromEncoded, parentUrl });
+    }
+
+    if (findings.length > 0) {
+        browserAPI.storage.local.get(["leakedKeys"], function(result) {
+            let keys = (result.leakedKeys && typeof result.leakedKeys === 'object' && !Array.isArray(result.leakedKeys))
+                ? result.leakedKeys
+                : {};
+
+            for (const finding of findings) {
+                if (Array.isArray(keys[parentOrigin])) {
+                    const isDuplicate = keys[parentOrigin].some(existing =>
+                        existing.src === finding.src &&
+                        existing.match === finding.match &&
+                        existing.key === finding.key &&
+                        existing.encoded === finding.encoded &&
+                        existing.parentUrl === finding.parentUrl
+                    );
+                    if (!isDuplicate) {
+                        keys[parentOrigin].push(finding);
+                        browserAPI.storage.local.set({ leakedKeys: keys }, function() {
+                            updateTabAndAlert(finding);
+                        });
+                    }
+                } else {
+                    keys[parentOrigin] = [finding];
+                    browserAPI.storage.local.set({ leakedKeys: keys }, function() {
+                        updateTabAndAlert(finding);
+                    });
+                }
+            }
+        });
+    }
+
+    // Recursive base64 decoding check
+    const decodedStrings = getDecodedb64(data);
+    for (const encoded of decodedStrings) {
+        checkData(encoded[1], src, regexes, denyList, encoded[0], parentUrl, parentOrigin);
+    }
+};
+
+const extractEndpoints = function(data, srcUrl, parentOrigin) {
+    const endpointRegex = /(?<=(?:"|'|`))((?:https?:\/\/[a-zA-Z0-9_\-\.]+\.[a-zA-Z]{2,})?\/[a-zA-Z0-9_?&=\/\-\#\.]+)(?=(?:"|'|`))/g;
+
+    const matches = [...data.matchAll(endpointRegex)];
+    if (matches.length > 0) {
+        browserAPI.storage.local.get(["endpoints"], function(result) {
+            const endpoints = result.endpoints || {};
+            if (!endpoints[parentOrigin]) endpoints[parentOrigin] = [];
+
+            let newFound = false;
+            for (const m of matches) {
+                const ep = m[1];
+                if (ep.length < 3 || ep.length > 250 || ep.includes("w3.org") || ep.includes("reactjs.org")) continue;
+
+                if (!endpoints[parentOrigin].find(e => e.url === ep && e.src === srcUrl)) {
+                    endpoints[parentOrigin].push({ url: ep, src: srcUrl });
+                    newFound = true;
+                }
+            }
+            if (newFound) {
+                browserAPI.storage.local.set({ endpoints });
+            }
+        });
+    }
+};
+
+/**
+ * Store a special finding (source map, cloud bucket, etc.) directly into leakedKeys.
+ */
+function storeSpecialFinding(key, matchText, src, parentOrigin) {
+    const finding = { src, match: matchText, key, encoded: false, parentUrl: src };
+    browserAPI.storage.local.get(["leakedKeys"], function(result) {
+        let keys = (result.leakedKeys && typeof result.leakedKeys === 'object' && !Array.isArray(result.leakedKeys))
+            ? result.leakedKeys
+            : {};
+        if (!Array.isArray(keys[parentOrigin])) keys[parentOrigin] = [];
+
+        const isDuplicate = keys[parentOrigin].some(existing =>
+            existing.src === finding.src &&
+            existing.match === finding.match &&
+            existing.key === finding.key
+        );
+        if (!isDuplicate) {
+            keys[parentOrigin].push(finding);
+            browserAPI.storage.local.set({ leakedKeys: keys }, function() {
+                updateTabAndAlert(finding);
+            });
+        }
+    });
+}
+
+
+// ─── UI & Notifications ─────────────────────────────────────────────
+
+const updateTabAndAlert = function(finding) {
+    const key = finding.key;
+    const src = finding.src;
+    const match = finding.match;
+    const fromEncoded = finding.encoded;
+    browserAPI.storage.sync.get(["alerts"], function(result) {
+        if (result.alerts === undefined || result.alerts) {
+            const msg = fromEncoded
+                ? key + ": " + match + " found in " + src + " decoded from " + fromEncoded.substring(0, 9) + "..."
+                : key + ": " + match + " found in " + src;
+            if (browserAPI.notifications) {
+                browserAPI.notifications.create({ type: "basic", title: "Trufflehog - Credential Found", message: msg });
+            }
+        }
+    });
+    updateTab();
+};
+
+const updateTab = function() {
+    browserAPI.tabs.query({ active: true, currentWindow: true }, function(tabs) {
+        const tab = tabs && tabs[0] ? tabs[0] : null;
+        if (!tab || !tab.url || tab.url.startsWith('about:') || tab.url.startsWith('moz-extension:')) return;
+        let origin;
+        try { origin = (new URL(tab.url)).origin; } catch (e) { return; }
+        browserAPI.storage.local.get(["leakedKeys"], function(result) {
+            const originKeys = Array.isArray(result?.leakedKeys?.[origin])
+                ? result.leakedKeys[origin].length.toString()
+                : "";
+            const action = browserAPI.action || browserAPI.browserAction;
+            if (action) {
+                action.setBadgeText({ text: originKeys });
+                action.setBadgeBackgroundColor({ color: '#ff0000' });
+            }
+        });
+    });
+};
+
+browserAPI.tabs.onActivated.addListener(function() {
     updateTab();
 });
 
-var getStringsOfSet = function(word, char_set, threshold=20){
+
+// ─── String / Base64 Utilities ───────────────────────────────────────
+
+const getStringsOfSet = function(word, charSet, threshold = 20) {
     let count = 0;
     let letters = "";
-    let strings = [];
-    if (! word){
-        return []
-    }
-    for(let char of word){
-        if (char_set.indexOf(char) > -1){
+    const strings = [];
+    if (!word) return [];
+    for (const char of word) {
+        if (charSet.indexOf(char) > -1) {
             letters += char;
             count += 1;
-        } else{
-            if ( count > threshold ){
+        } else {
+            if (count > threshold) {
                 strings.push(letters);
             }
             letters = "";
             count = 0;
         }
     }
-    if(count > threshold){
+    if (count > threshold) {
         strings.push(letters);
     }
-    return strings
-}
+    return strings;
+};
 
-var getDecodedb64 = function(inputString){
-    let b64CharSet = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/=";
-    let encodeds = getStringsOfSet(inputString, b64CharSet);
-    let decodeds = [];
-    for (encoded of encodeds){
+const getDecodedb64 = function(inputString) {
+    const b64CharSet = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/=";
+    const encodeds = getStringsOfSet(inputString, b64CharSet);
+    const decodeds = [];
+    for (const encoded of encodeds) {
         try {
-            let decoded = [encoded, atob(encoded)];
-            decodeds.push(decoded);
-        } catch(e) {
+            decodeds.push([encoded, atob(encoded)]);
+        } catch (e) {
+            // Not valid base64 — skip silently
         }
     }
     return decodeds;
-}
+};
 
-var checkIfOriginDenied = function(check_url, cb){
+
+// ─── Origin Deny & Git Check ─────────────────────────────────────────
+
+const checkIfOriginDenied = function(checkUrl, cb) {
     let skip = false;
-    chrome.storage.sync.get(["originDenyList"], function(result) {
-        let originDenyList = result.originDenyList;
-        for (origin of originDenyList){
-            if(check_url.startsWith(origin)){
+    browserAPI.storage.sync.get(["originDenyList"], function(result) {
+        const originDenyList = result.originDenyList || [];
+        for (const origin of originDenyList) {
+            if (checkUrl.startsWith(origin)) {
                 skip = true;
             }
         }
         cb(skip);
-    })
-}
-var checkForGitDir = function(data, url){
-    if(data.startsWith("[core]")){
-        alert(".git dir found in " + url + " feature to check this for secrets not supported");
+    });
+};
+
+const checkForGitDir = function(data, url) {
+    if (data.startsWith("[core]")) {
+        const msg = ".git dir found in " + url + " - feature to check this for secrets not supported";
+        if (browserAPI.notifications) {
+            browserAPI.notifications.create({ type: "basic", title: "Trufflehog", message: msg });
+        }
     }
+};
 
-}
-var js_url;
-chrome.extension.onMessage.addListener(function(request, sender, sendResponse) {
 
-    chrome.storage.sync.get(['generics'], function(useGenerics) {
-        chrome.storage.sync.get(['specifics'], function(useSpecifics) {
-            chrome.storage.sync.get(['aws'], function(useAws) {
-                chrome.storage.sync.get(['checkEnv'], function(checkEnv) {
-                    chrome.storage.sync.get(['checkGit'], function(checkGit) {
-                        let regexes = {};
-                        if(useGenerics["generics"] || useGenerics["generics"] == undefined){
-                            regexes = {
-                                ...regexes,
-                                ...generics
-                            }
-                        }
-                        if(useSpecifics["specifics"] || useSpecifics["specifics"] == undefined){
-                            regexes = {
-                                ...regexes,
-                                ...specifics
-                            }
-                        }
-                        if(useAws["aws"] || useAws["aws"] == undefined){
-                            regexes = {
-                                ...regexes,
-                                ...aws
-                            }
-                        }
-                        if (request.scriptUrl) {
-                            let js_url = request.scriptUrl;
-                            let parentUrl = request.parentUrl;
-                            let parentOrigin = request.parentOrigin;
-                            checkIfOriginDenied(js_url, function(skip){
-                                if (!skip){
-                                    fetch(js_url, {"credentials": 'include'})
-                                        .then(response => response.text())
-                                        .then(data => checkData(data, js_url, regexes, undefined, parentUrl, parentOrigin));
+// ─── Main Message Listener ───────────────────────────────────────────
+
+browserAPI.runtime.onMessage.addListener(function(request, sender, sendResponse) {
+    browserAPI.storage.sync.get(['generics', 'specifics', 'aws', 'checkEnv', 'checkGit', 'checkEndpoints', 'highEntropy', 'codeHeuristics'], function(config) {
+        let regexes = {};
+        if (config.generics !== false) regexes = { ...regexes, ...generics };
+        if (config.specifics !== false) regexes = { ...regexes, ...specifics };
+        if (config.aws !== false) regexes = { ...regexes, ...aws };
+        if (config.highEntropy === true) regexes = { ...regexes, ...highEntropy };
+        if (config.codeHeuristics === true) regexes = { ...regexes, ...codeHeuristics };
+
+        // Build the effective deny list, then process messages
+        getEffectiveDenyList(function(denyList) {
+            if (request.scriptUrl) {
+                const jsUrl = request.scriptUrl;
+                const parentUrl = request.parentUrl;
+                const parentOrigin = request.parentOrigin;
+
+                checkIfOriginDenied(jsUrl, function(skip) {
+                    if (!skip) {
+                        fetch(jsUrl, { credentials: 'include' })
+                            .then(response => response.text())
+                            .then(data => {
+                                checkData(data, jsUrl, regexes, denyList, undefined, parentUrl, parentOrigin);
+
+                                if (config.checkEndpoints) extractEndpoints(data, jsUrl, parentOrigin);
+
+                                // Detect exposed source maps → store as finding
+                                const sourceMapRegex = /\/\/#\s*sourceMappingURL=(.+?\.map)/;
+                                const mapMatch = data.match(sourceMapRegex);
+                                if (mapMatch) {
+                                    try {
+                                        const mapUrl = new URL(mapMatch[1], jsUrl).href;
+                                        storeSpecialFinding("Exposed Source Map", mapUrl, jsUrl, parentOrigin);
+                                    } catch (e) {
+                                        // Invalid URL — skip
+                                    }
                                 }
 
-                            })
-
-                        }else if(request.pageBody){
-                            checkIfOriginDenied(request.origin, function(skip){
-                                if (!skip){
-                                    checkData(request.pageBody, request.origin, regexes, undefined, request.parentUrl, request.parentOrigin);
+                                // Detect exposed cloud buckets → store as finding
+                                const cloudBucketRegex = /(?<=(?:"|'|`))(https?:\/\/[a-z0-9\-\.]+\.(s3\.amazonaws\.com|storage\.googleapis\.com|digitaloceanspaces\.com|blob\.core\.windows\.net)[^'"]*)(?=(?:"|'|`))/gi;
+                                const buckets = [...data.matchAll(cloudBucketRegex)];
+                                for (const b of buckets) {
+                                    storeSpecialFinding("Exposed Cloud Bucket", b[0], jsUrl, parentOrigin);
                                 }
-                            })
-                        }else if(request.envFile){
-                            if(checkEnv['checkEnv']){
-                                fetch(request.envFile, {"credentials": 'include'})
-                                    .then(response => response.text())
-                                    .then(data => checkData(data, ".env file at " + request.envFile, regexes, undefined, request.parentUrl, request.parentOrigin));
-                            }
-                        }else if(request.openTabs){
-                            for (tab of request.openTabs){
-                                window.open(tab);
-                                console.log(tab)
-                            }
-                        }else if(request.gitDir){
-                            if(checkGit['checkGit']){
-                            fetch(request.gitDir, {"credentials": 'include'})
-                                    .then(response => response.text())
-                                    .then(data => checkForGitDir(data, request.gitDir));
-                            }
 
-                        }
-                    });
+                            }).catch(e => {
+                                console.error('[Trufflehog] Failed to fetch script:', jsUrl, e);
+                            });
+                    }
                 });
-            });
 
+            } else if (request.pageBody) {
+                checkIfOriginDenied(request.origin, function(skip) {
+                    if (!skip) {
+                        checkData(request.pageBody, request.origin, regexes, denyList, undefined, request.parentUrl, request.parentOrigin);
+                        if (config.checkEndpoints) extractEndpoints(request.pageBody, request.origin, request.parentOrigin);
+                    }
+                });
+            } else if (request.envFile && config.checkEnv) {
+                fetch(request.envFile, { credentials: 'include' })
+                    .then(response => response.text())
+                    .then(data => checkData(data, ".env file at " + request.envFile, regexes, denyList, undefined, request.parentUrl, request.parentOrigin))
+                    .catch(e => {
+                        console.error('[Trufflehog] Failed to fetch .env:', request.envFile, e);
+                    });
+            } else if (request.gitDir && config.checkGit) {
+                fetch(request.gitDir, { credentials: 'include' })
+                    .then(response => response.text())
+                    .then(data => checkForGitDir(data, request.gitDir))
+                    .catch(e => {
+                        console.error('[Trufflehog] Failed to fetch .git/config:', request.gitDir, e);
+                    });
+            } else if (request.openTabs) {
+                for (const tabUrl of request.openTabs) {
+                    if (tabUrl) browserAPI.tabs.create({ url: tabUrl });
+                }
+            }
         });
     });
-
-
-
 });
-

@@ -1,89 +1,405 @@
-/* The switch - the box around the slider */
+:root {
+    --bg-primary: #0d1117;
+    --bg-secondary: #161b22;
+    --bg-tertiary: #21262d;
+    --border: #30363d;
+    --border-hover: #484f58;
+    --text-primary: #e6edf3;
+    --text-secondary: #8b949e;
+    --text-muted: #6e7681;
+    --accent: #dc2626;
+    --accent-hover: #ef4444;
+    --accent-muted: rgba(220, 38, 38, 0.15);
+    --success: #22c55e;
+    --danger: #ef4444;
+    --radius: 8px;
+    --radius-sm: 6px;
+    --transition-fast: 0.15s ease;
+    --transition-normal: 0.25s ease;
+    --font-mono: 'Consolas', 'Monaco', 'Ubuntu Mono', 'Courier New', monospace;
+    --font-sans: 'Segoe UI', system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+    --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.3);
+    --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.4);
+}
+
+* {
+    box-sizing: border-box;
+}
+
+body {
+    width: 340px;
+    min-height: 360px;
+    margin: 0;
+    padding: 0;
+    font-family: var(--font-sans);
+    font-size: 14px;
+    line-height: 1.5;
+    color: var(--text-primary);
+    background: var(--bg-primary);
+    -webkit-font-smoothing: antialiased;
+}
+
+/* Scrollbar (global) */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: var(--bg-primary); }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--border-hover); }
+
+/* ── Header ─────────────────────────────────────────── */
+
+.header {
+    position: relative;
+    padding: 16px 20px;
+    text-align: center;
+    border-bottom: 1px solid var(--border);
+    background: linear-gradient(180deg, var(--bg-secondary) 0%, var(--bg-primary) 100%);
+}
+
+.header-top {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    margin-bottom: 8px;
+}
+
+.logo {
+    width: 48px;
+    height: 48px;
+    filter: drop-shadow(0 2px 6px rgba(220, 38, 38, 0.25));
+    transition: transform var(--transition-normal);
+}
+
+.logo:hover {
+    transform: scale(1.08);
+}
+
+.lang-select-wrap {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+}
+
+.lang-select {
+    padding: 6px 10px;
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--text-primary);
+    background: var(--bg-tertiary);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+}
+
+.lang-select:hover {
+    border-color: var(--accent);
+}
+
+.lang-select:focus {
+    outline: none;
+    border-color: var(--accent);
+    box-shadow: 0 0 0 2px var(--accent-muted);
+}
+
+.title {
+    margin: 0;
+    font-size: 1.35rem;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+}
+
+.subtitle {
+    margin: 4px 0 0;
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+}
+
+/* ── Main ───────────────────────────────────────────── */
+
+.main {
+    padding: 12px 16px 20px;
+}
+
+.section {
+    margin-bottom: 16px;
+}
+
+.section-title {
+    margin: 0 0 12px;
+    padding-bottom: 8px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--text-muted);
+}
+
+/* ── Toggle Rows ────────────────────────────────────── */
+
+.toggle-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 12px;
+    margin-bottom: 2px;
+    background: var(--bg-secondary);
+    border-radius: var(--radius-sm);
+    transition: background var(--transition-fast);
+}
+
+.toggle-row:hover {
+    background: var(--bg-tertiary);
+}
+
+.toggle-label {
+    font-weight: 500;
+}
+
+.toggle-hint {
+    display: block;
+    margin: -4px 0 8px 12px;
+    font-size: 0.7rem;
+    color: var(--text-muted);
+}
+
+/* ── Switch ─────────────────────────────────────────── */
+
 .switch {
-  position: relative;
-  margin-left: 20px;
-  display: inline-block;
-  width: 60px;
-  height: 34px;
+    position: relative;
+    display: inline-block;
+    width: 44px;
+    height: 24px;
+    flex-shrink: 0;
 }
 
-/* Hide default HTML checkbox */
 .switch input {
-  opacity: 0;
-  width: 0;
-  height: 0;
+    opacity: 0;
+    width: 0;
+    height: 0;
 }
 
-/* The slider */
 .slider {
-  position: absolute;
-  cursor: pointer;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background-color: #ccc;
-  -webkit-transition: .4s;
-  transition: .4s;
+    position: absolute;
+    cursor: pointer;
+    inset: 0;
+    background: var(--bg-tertiary);
+    border: 1px solid var(--border);
+    border-radius: 24px;
+    transition: background var(--transition-fast), border-color var(--transition-fast);
 }
 
-.slider:before {
-  position: absolute;
-  content: "";
-  height: 26px;
-  width: 26px;
-  left: 4px;
-  bottom: 4px;
-  background-color: white;
-  -webkit-transition: .4s;
-  transition: .4s;
+.slider::before {
+    position: absolute;
+    content: "";
+    height: 18px;
+    width: 18px;
+    left: 2px;
+    bottom: 2px;
+    background: var(--text-secondary);
+    border-radius: 50%;
+    transition: transform var(--transition-fast), background var(--transition-fast);
 }
 
 input:checked + .slider {
-  background-color: #2196F3;
+    background: var(--accent-muted);
+    border-color: var(--accent);
 }
 
-input:focus + .slider {
-  box-shadow: 0 0 1px #2196F3;
+input:checked + .slider::before {
+    transform: translateX(20px);
+    background: var(--accent);
 }
 
-input:checked + .slider:before {
-  -webkit-transform: translateX(26px);
-  -ms-transform: translateX(26px);
-  transform: translateX(26px);
+input:focus-visible + .slider {
+    box-shadow: 0 0 0 2px var(--accent-muted);
 }
 
-/* Rounded sliders */
-.slider.round {
-  border-radius: 34px;
-}
+/* ── Accordion ──────────────────────────────────────── */
 
-.slider.round:before {
-  border-radius: 50%;
-}
-
-/* Style the buttons that are used to open and close the accordion panel */
 .accordion {
-  background-color: #eee;
-  color: #444;
-  cursor: pointer;
-  padding: 18px;
-  width: 100%;
-  text-align: left;
-  border: none;
-  outline: none;
-  transition: 0.4s;
+    margin-bottom: 8px;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    overflow: hidden;
+    transition: border-color var(--transition-fast);
 }
 
-/* Add a background color to the button if it is clicked on (add the .active class with JS), and when you move the mouse over it (hover) */
-.active, .accordion:hover {
-  background-color: #ccc;
+.accordion[open] {
+    border-color: var(--border-hover);
 }
 
-/* Style the accordion panel. Note: hidden by default */
-.panel {
-  padding: 0 18px;
-  background-color: white;
-  display: none;
-  overflow: hidden;
+.accordion-trigger {
+    padding: 14px 16px;
+    font-weight: 600;
+    cursor: pointer;
+    list-style: none;
+    transition: background var(--transition-fast);
+    user-select: none;
+}
+
+.accordion-trigger::-webkit-details-marker {
+    display: none;
+}
+
+.accordion-trigger::before {
+    content: '▶';
+    display: inline-block;
+    margin-right: 10px;
+    font-size: 0.65rem;
+    color: var(--text-muted);
+    transition: transform var(--transition-fast);
+}
+
+.accordion[open] .accordion-trigger::before {
+    transform: rotate(90deg);
+}
+
+.accordion-trigger:hover {
+    background: var(--bg-tertiary);
+}
+
+.accordion-content {
+    padding: 12px 16px 16px;
+    border-top: 1px solid var(--border);
+}
+
+.input-label {
+    display: block;
+    margin-bottom: 6px;
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+}
+
+.textarea {
+    width: 100%;
+    padding: 10px 12px;
+    font-family: var(--font-mono);
+    font-size: 12px;
+    color: var(--text-primary);
+    background: var(--bg-primary);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    resize: vertical;
+    transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+}
+
+.textarea::placeholder {
+    color: var(--text-muted);
+}
+
+.textarea:focus {
+    outline: none;
+    border-color: var(--accent);
+    box-shadow: 0 0 0 2px var(--accent-muted);
+}
+
+/* ── Buttons ────────────────────────────────────────── */
+
+.btn {
+    padding: 8px 14px;
+    font-family: inherit;
+    font-size: 13px;
+    font-weight: 600;
+    border: none;
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    transition: background var(--transition-fast), transform 0.1s ease, box-shadow var(--transition-fast);
+}
+
+.btn:active {
+    transform: scale(0.97);
+}
+
+.btn:focus-visible {
+    box-shadow: 0 0 0 2px var(--accent-muted);
+    outline: none;
+}
+
+.btn-primary {
+    background: var(--accent);
+    color: #fff;
+}
+
+.btn-primary:hover {
+    background: var(--accent-hover);
+    box-shadow: var(--shadow-sm);
+}
+
+.btn-secondary {
+    background: var(--bg-tertiary);
+    color: var(--text-primary);
+    border: 1px solid var(--border);
+}
+
+.btn-secondary:hover {
+    background: var(--border);
+}
+
+.button-group {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 14px;
+}
+
+.btn-full {
+    width: 100%;
+    margin-top: 12px;
+}
+
+/* ── Findings List ──────────────────────────────────── */
+
+.findings-title {
+    margin: 0 0 10px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--text-secondary);
+}
+
+.findings-list {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    font-size: 12px;
+    max-height: 180px;
+    overflow-y: auto;
+}
+
+.findings-list li {
+    padding: 8px 10px;
+    margin-bottom: 4px;
+    background: var(--bg-primary);
+    border-radius: var(--radius-sm);
+    border-left: 3px solid var(--accent);
+    color: var(--text-secondary);
+    word-break: break-all;
+    transition: background var(--transition-fast), border-color var(--transition-fast);
+}
+
+.findings-list li.clickable-item {
+    cursor: pointer;
+}
+
+.findings-list li.clickable-item:hover {
+    background: var(--bg-tertiary);
+    border-left-color: var(--accent-hover);
+}
+
+.findings-hint {
+    margin: 0 0 10px;
+    font-size: 0.8rem;
+    color: var(--text-muted);
+}
+
+.findings-empty {
+    display: block;
+    padding: 16px;
+    color: var(--text-muted);
+    font-size: 0.85rem;
+}
+
+.findings-empty.hidden {
+    display: none;
 }
