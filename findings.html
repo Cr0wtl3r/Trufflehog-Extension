@@ -1,43 +1,300 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Trufflehog – Full Report</title>
     <link rel="stylesheet" href="popup.css">
     <style>
-        body { width: 100%; min-width: 600px; min-height: 400px; padding: 24px; }
-        .report-header { margin-bottom: 24px; padding-bottom: 16px; border-bottom: 1px solid var(--border); }
-        .report-header h1 { margin: 0 0 8px; font-size: 1.5rem; }
-        .report-section { margin-bottom: 28px; }
-        .report-section h2 { margin: 0 0 16px; font-size: 1.1rem; color: var(--accent); }
-        .origin-block { margin-bottom: 20px; padding: 16px; background: var(--bg-secondary); border-radius: var(--radius); border: 1px solid var(--border); }
-        .origin-block h3 { margin: 0 0 12px; font-size: 0.95rem; color: var(--text-secondary); word-break: break-all; }
-        .finding-card, .endpoint-card { padding: 12px 14px; margin-bottom: 8px; background: var(--bg-primary); border-radius: var(--radius-sm); border-left: 4px solid var(--accent); font-size: 13px; }
-        .finding-card .type { font-weight: 600; color: var(--accent); margin-bottom: 4px; }
-        .finding-card .match { font-family: monospace; word-break: break-all; color: var(--text-primary); }
-        .finding-card .meta { font-size: 0.8rem; color: var(--text-muted); margin-top: 6px; }
-        .endpoint-card .url { font-family: monospace; word-break: break-all; }
-        .endpoint-card .src { font-size: 0.8rem; color: var(--text-muted); margin-top: 4px; }
-        .empty-msg { padding: 24px; text-align: center; color: var(--text-muted); }
-        .nav-back { display: inline-flex; align-items: center; gap: 6px; margin-bottom: 16px; color: var(--accent); cursor: pointer; font-size: 0.9rem; }
-        .nav-back:hover { text-decoration: underline; }
+        body {
+            width: 100%;
+            min-width: 600px;
+            min-height: 400px;
+            padding: 24px;
+        }
+
+        .report-header {
+            margin-bottom: 24px;
+            padding-bottom: 16px;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .report-header h1 {
+            margin: 0 0 8px;
+            font-size: 1.5rem;
+        }
+
+        .report-section {
+            margin-bottom: 28px;
+        }
+
+        .report-section h2 {
+            margin: 0 0 16px;
+            font-size: 1.1rem;
+            color: var(--accent);
+        }
+
+        .search-bar {
+            width: 100%;
+            padding: 10px 14px;
+            margin-bottom: 16px;
+            font-family: var(--font-sans);
+            font-size: 13px;
+            color: var(--text-primary);
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+        }
+
+        .search-bar:focus {
+            outline: none;
+            border-color: var(--accent);
+            box-shadow: 0 0 0 2px var(--accent-muted);
+        }
+
+        .search-bar::placeholder {
+            color: var(--text-muted);
+        }
+
+        .origin-dropdown {
+            margin-bottom: 12px;
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            overflow: hidden;
+        }
+
+        .origin-dropdown[open] {
+            border-color: var(--border-hover);
+        }
+
+        .origin-summary {
+            padding: 12px 16px;
+            font-weight: 600;
+            font-size: 0.95rem;
+            color: var(--text-secondary);
+            cursor: pointer;
+            list-style: none;
+            user-select: none;
+            transition: background var(--transition-fast);
+            word-break: break-all;
+        }
+
+        .origin-summary::-webkit-details-marker {
+            display: none;
+        }
+
+        .origin-summary::before {
+            content: '▶';
+            display: inline-block;
+            margin-right: 10px;
+            font-size: 0.6rem;
+            color: var(--text-muted);
+            transition: transform var(--transition-fast);
+        }
+
+        .origin-dropdown[open] .origin-summary::before {
+            transform: rotate(90deg);
+        }
+
+        .origin-summary:hover {
+            background: var(--bg-tertiary);
+        }
+
+        .origin-summary .badge {
+            font-size: 0.75rem;
+            color: var(--accent);
+            margin-left: 8px;
+            font-weight: 400;
+        }
+
+        .origin-body {
+            padding: 8px 16px 16px;
+        }
+
+        .finding-card,
+        .endpoint-card {
+            padding: 12px 14px;
+            margin-bottom: 8px;
+            background: var(--bg-primary);
+            border-radius: var(--radius-sm);
+            border-left: 4px solid var(--accent);
+            font-size: 13px;
+            transition: opacity var(--transition-fast);
+        }
+
+        .finding-card .type {
+            font-weight: 600;
+            color: var(--accent);
+            margin-bottom: 4px;
+        }
+
+        .finding-card .match {
+            font-family: monospace;
+            word-break: break-all;
+            color: var(--text-primary);
+        }
+
+        .finding-card .meta {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            margin-top: 6px;
+        }
+
+        .endpoint-card .url {
+            font-family: monospace;
+            word-break: break-all;
+        }
+
+        .endpoint-card .src {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            margin-top: 4px;
+        }
+
+        .empty-msg {
+            padding: 24px;
+            text-align: center;
+            color: var(--text-muted);
+        }
+
+        .nav-back {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            margin-bottom: 16px;
+            color: var(--accent);
+            cursor: pointer;
+            font-size: 0.9rem;
+        }
+
+        .nav-back:hover {
+            text-decoration: underline;
+        }
+
+        .denied-card {
+            opacity: 0.3;
+            border-left-color: var(--text-muted);
+        }
+
+        .denied-label {
+            font-size: 0.7rem;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            margin-left: 8px;
+        }
+
+        .denied-separator {
+            margin: 16px 0 8px;
+            padding: 8px 0;
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            border-top: 1px dashed var(--border);
+        }
+
+        .highlight-card {
+            animation: highlightPulse 2s ease-out;
+        }
+
+        @keyframes highlightPulse {
+            0% {
+                background: var(--accent-muted);
+                border-left-color: var(--accent-hover);
+            }
+
+            100% {
+                background: var(--bg-primary);
+                border-left-color: var(--accent);
+            }
+        }
+
+        .hidden-by-search {
+            display: none !important;
+        }
+
+        .hidden-origin {
+            display: none !important;
+        }
+
+        .export-bar {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 12px;
+        }
+
+        .btn-export {
+            padding: 6px 14px;
+            font-family: var(--font-sans);
+            font-size: 12px;
+            font-weight: 600;
+            color: var(--text-primary);
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-sm);
+            cursor: pointer;
+            transition: background var(--transition-fast), border-color var(--transition-fast);
+        }
+
+        .btn-export:hover {
+            background: var(--border);
+            border-color: var(--border-hover);
+        }
+
+        .card-check {
+            width: 14px;
+            height: 14px;
+            accent-color: var(--accent);
+            cursor: pointer;
+            flex-shrink: 0;
+            margin-right: 10px;
+        }
+
+        .finding-card,
+        .endpoint-card {
+            display: flex;
+            align-items: flex-start;
+        }
+
+        .card-body {
+            flex: 1;
+            min-width: 0;
+        }
     </style>
 </head>
+
 <body>
     <div class="nav-back" id="navBack" data-i18n="navBack">← Close</div>
     <header class="report-header">
         <h1>Trufflehog – Full Report</h1>
         <p class="subtitle" id="reportSubtitle">All findings and endpoints</p>
     </header>
+    <input type="text" class="search-bar" id="searchBar" placeholder="🔍 Search findings and endpoints..."
+        data-i18n-placeholder="searchPlaceholder">
     <section class="report-section" id="findingsSection">
         <h2 data-i18n="findingsSection">Findings (Credentials)</h2>
+        <div class="export-bar">
+            <button class="btn-export" id="selectAllFindings" data-i18n="selectAll">☑ Select All</button>
+            <button class="btn-export" id="deselectAllFindings" data-i18n="deselectAll">☐ Deselect All</button>
+            <button class="btn-export" id="exportFindingsTxt" data-i18n="exportTxt">📄 Export Keys (.txt)</button>
+        </div>
         <div id="findingsContent"></div>
     </section>
     <section class="report-section" id="endpointsSection">
         <h2 data-i18n="endpointsSection">Endpoints</h2>
+        <div class="export-bar">
+            <button class="btn-export" id="selectAllEndpoints" data-i18n="selectAll">☑ Select All</button>
+            <button class="btn-export" id="deselectAllEndpoints" data-i18n="deselectAll">☐ Deselect All</button>
+            <button class="btn-export" id="exportEndpointsTxt" data-i18n="exportEndpointsTxt">📄 Export Endpoints
+                (.txt)</button>
+        </div>
         <div id="endpointsContent"></div>
     </section>
     <script src="findings.js"></script>
 </body>
+
 </html>

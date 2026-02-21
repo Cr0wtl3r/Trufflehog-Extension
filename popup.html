@@ -10,6 +10,12 @@
 <body>
     <header class="header">
         <div class="header-top">
+            <div class="master-switch-wrap">
+                <label class="switch master-switch">
+                    <input type="checkbox" id="appEnabled">
+                    <span class="slider"></span>
+                </label>
+            </div>
             <img src="assets/icon48.png" alt="Trufflehog" class="logo">
             <div class="lang-select-wrap">
                 <select id="langSelect" class="lang-select" title="Language / Idioma">
@@ -23,6 +29,9 @@
     </header>
 
     <main class="main">
+        <button type="button" class="btn btn-primary btn-full-report" id="openFullReport" data-i18n="viewFullReport">📋
+            View Full Report</button>
+
         <section class="section">
             <h2 class="section-title" data-i18n="sectionDetection">Detection</h2>
             <div class="toggle-row">
@@ -47,8 +56,15 @@
                     <span class="slider"></span>
                 </label>
             </div>
-            <span class="toggle-hint" data-i18n="codeHeuristicsWarning">Detects TODOs, AI-generated code, hardcoded
+            <span class="toggle-hint" data-i18n="codeHeuristicsWarning">Detects TODOs, automated code markers, hardcoded
                 passwords</span>
+            <div class="toggle-row">
+                <span class="toggle-label" data-i18n="checkSourceMaps">Check Source Maps</span>
+                <label class="switch">
+                    <input type="checkbox" id="checkSourceMaps">
+                    <span class="slider"></span>
+                </label>
+            </div>
             <div class="toggle-row">
                 <span class="toggle-label" data-i18n="checkEndpoints">Extract Endpoints</span>
                 <label class="switch">
@@ -123,10 +139,7 @@
                         All</button>
                     <button type="button" class="btn btn-primary" id="downloadAllFindings"
                         data-i18n="downloadCsv">Download CSV</button>
-                    <button type="button" class="btn btn-primary" id="openFindingsPage" data-i18n="viewFullReport">View
-                        Full Report</button>
                 </div>
-                <p class="findings-hint" data-i18n="clickToViewDetails">Click an item to view the full report</p>
                 <h3 class="findings-title" data-i18n="findingsForOrigin">Findings for this origin</h3>
                 <div id="findingListEmpty" class="findings-empty" data-i18n="noFindings">No findings for this origin
                 </div>
@@ -142,10 +155,7 @@
                         data-i18n="clearThisOrigin">Clear This Origin</button>
                     <button type="button" class="btn btn-primary" id="downloadEndpointsCsv"
                         data-i18n="downloadCsv">Download CSV</button>
-                    <button type="button" class="btn btn-primary" id="openFindingsPageFromEndpoints"
-                        data-i18n="viewFullReport">View Full Report</button>
                 </div>
-                <p class="findings-hint" data-i18n="clickToViewDetails">Click an item to view the full report</p>
                 <h3 class="findings-title" data-i18n="endpointsForOrigin">Endpoints for this origin</h3>
                 <div id="endpointListEmpty" class="findings-empty" data-i18n="noEndpoints">No endpoints found</div>
                 <ul id="endpointList" class="findings-list"></ul>

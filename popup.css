@@ -39,13 +39,23 @@ body {
     -webkit-font-smoothing: antialiased;
 }
 
-/* Scrollbar (global) */
-::-webkit-scrollbar { width: 6px; height: 6px; }
-::-webkit-scrollbar-track { background: var(--bg-primary); }
-::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
-::-webkit-scrollbar-thumb:hover { background: var(--border-hover); }
+::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+}
 
-/* ── Header ─────────────────────────────────────────── */
+::-webkit-scrollbar-track {
+    background: var(--bg-primary);
+}
+
+::-webkit-scrollbar-thumb {
+    background: var(--border);
+    border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: var(--border-hover);
+}
 
 .header {
     position: relative;
@@ -74,9 +84,32 @@ body {
     transform: scale(1.08);
 }
 
+.master-switch-wrap {
+    position: absolute;
+    top: 14px;
+    left: 12px;
+    z-index: 10;
+}
+
+.switch.master-switch {
+    width: 30px;
+    height: 16px;
+}
+
+.switch.master-switch .slider::before {
+    height: 12px;
+    width: 12px;
+    left: 1px;
+    bottom: 1px;
+}
+
+.switch.master-switch input:checked+.slider::before {
+    transform: translateX(14px);
+}
+
 .lang-select-wrap {
     position: absolute;
-    top: 12px;
+    top: 14px;
     right: 12px;
 }
 
@@ -115,7 +148,26 @@ body {
     color: var(--text-secondary);
 }
 
-/* ── Main ───────────────────────────────────────────── */
+.btn-full-report {
+    display: block;
+    width: calc(100% - 32px);
+    margin: 12px 16px 4px;
+    padding: 10px 14px;
+    text-align: center;
+    font-size: 13px;
+    font-weight: 600;
+    background: var(--accent);
+    color: #fff;
+    border: none;
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    transition: background var(--transition-fast), box-shadow var(--transition-fast);
+}
+
+.btn-full-report:hover {
+    background: var(--accent-hover);
+    box-shadow: var(--shadow-sm);
+}
 
 .main {
     padding: 12px 16px 20px;
@@ -134,8 +186,6 @@ body {
     letter-spacing: 0.08em;
     color: var(--text-muted);
 }
-
-/* ── Toggle Rows ────────────────────────────────────── */
 
 .toggle-row {
     display: flex;
@@ -162,8 +212,6 @@ body {
     font-size: 0.7rem;
     color: var(--text-muted);
 }
-
-/* ── Switch ─────────────────────────────────────────── */
 
 .switch {
     position: relative;
@@ -201,21 +249,19 @@ body {
     transition: transform var(--transition-fast), background var(--transition-fast);
 }
 
-input:checked + .slider {
+input:checked+.slider {
     background: var(--accent-muted);
     border-color: var(--accent);
 }
 
-input:checked + .slider::before {
+input:checked+.slider::before {
     transform: translateX(20px);
     background: var(--accent);
 }
 
-input:focus-visible + .slider {
+input:focus-visible+.slider {
     box-shadow: 0 0 0 2px var(--accent-muted);
 }
-
-/* ── Accordion ──────────────────────────────────────── */
 
 .accordion {
     margin-bottom: 8px;
@@ -295,8 +341,6 @@ input:focus-visible + .slider {
     box-shadow: 0 0 0 2px var(--accent-muted);
 }
 
-/* ── Buttons ────────────────────────────────────────── */
-
 .btn {
     padding: 8px 14px;
     font-family: inherit;
@@ -315,6 +359,19 @@ input:focus-visible + .slider {
 .btn:focus-visible {
     box-shadow: 0 0 0 2px var(--accent-muted);
     outline: none;
+}
+
+body.app-disabled .main {
+    opacity: 0.5;
+    pointer-events: none;
+}
+
+body.app-disabled .slider {
+    filter: grayscale(1);
+}
+
+body.app-disabled .master-switch-wrap {
+    pointer-events: auto;
 }
 
 .btn-primary {
@@ -348,8 +405,6 @@ input:focus-visible + .slider {
     width: 100%;
     margin-top: 12px;
 }
-
-/* ── Findings List ──────────────────────────────────── */
 
 .findings-title {
     margin: 0 0 10px;

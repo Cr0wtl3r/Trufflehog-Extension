@@ -14,13 +14,14 @@ Trufflehog detects credentials and secrets exposed on web pages during navigatio
 
 ## Features
 
+- **Master Switch** — Top-left ON/OFF toggle to completely enable/disable the extension activity
 - **Secret Detection** — 40+ regex patterns for specific services (Slack, AWS, GitHub, OpenAI, Anthropic, Discord, Stripe, JWT, GitLab, NPM, Docker, SendGrid, etc.)
 - **Generic Secrets** — Catches `api_key`, `secret`, and similar patterns
 - **AWS Keys** — Detects AKIA/ASIA/AGPA and other AWS key prefixes
 - **High Entropy Strings** — Optional deep scan for random-looking strings (may increase false positives)
-- **Code Heuristics** — Detects TODO security comments, AI-generated code markers, hardcoded passwords, and insecure code flags
+- **Code Heuristics** — Detects TODO security comments, automated code markers, hardcoded passwords, and insecure code flags
 - **Endpoint Extraction** — Scans for API paths and URLs in pages and scripts
-- **Exposed Source Maps** — Detects `.map` files referenced in JavaScript bundles, stored as findings
+- **Source Map Toggle** — Enable/disable detection of `.map` files referenced in JavaScript bundles
 - **Exposed Cloud Buckets** — Detects S3, GCS, Azure Blob, and DigitalOcean Spaces URLs, stored as findings
 - **Optional Checks** — `.env` files, `.git` directories (may trigger WAF)
 - **Match Deny List** — User-configurable list to ignore specific patterns or service names in findings
@@ -103,13 +104,14 @@ O Trufflehog detecta credenciais e segredos expostos em páginas web durante a n
 
 ## Funcionalidades
 
+- **Switch Mestre** — Toggle ON/OFF no canto superior esquerdo para ativar/desativar completamente a extensão
 - **Detecção de Secrets** — 40+ padrões regex para serviços específicos (Slack, AWS, GitHub, OpenAI, Anthropic, Discord, Stripe, JWT, GitLab, NPM, Docker, SendGrid, etc.)
 - **Secrets Genéricos** — Captura padrões `api_key`, `secret` e similares
 - **Chaves AWS** — Detecta AKIA/ASIA/AGPA e outros prefixos de chaves AWS
 - **Strings de Alta Entropia** — Scan profundo opcional para strings aleatórias (pode aumentar falsos positivos)
-- **Heurísticas de Código** — Detecta TODOs de segurança, marcadores de código gerado por IA, senhas hardcoded e flags de código inseguro
+- **Heurísticas de Código** — Detecta TODOs de segurança, marcadores de código automatizados, senhas hardcoded e flags de código inseguro
 - **Extração de Endpoints** — Busca caminhos e URLs de API em páginas e scripts
-- **Source Maps Expostos** — Detecta arquivos `.map` referenciados em bundles JavaScript, armazenados como achados
+- **Toggle de Source Maps** — Ativar/desativar detecção de arquivos `.map` referenciados em bundles JavaScript
 - **Buckets de Nuvem Expostos** — Detecta URLs de S3, GCS, Azure Blob e DigitalOcean Spaces, armazenados como achados
 - **Verificações Opcionais** — Arquivos `.env`, diretórios `.git` (podem acionar WAF)
 - **Lista de Negação de Padrões** — Lista configurável para ignorar padrões ou nomes de serviços específicos nos achados

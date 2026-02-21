@@ -1,7 +1,5 @@
 const browserAPI = typeof browser !== 'undefined' ? browser : chrome;
 
-// ─── Internationalization ────────────────────────────────────────────
-
 const i18n = {
     en: {
         subtitle: "Sniffing out credentials",
@@ -38,8 +36,9 @@ const i18n = {
         highEntropy: "High Entropy (Deep Scan)",
         entropyWarning: "High rate of false positives",
         codeHeuristics: "Code Heuristics",
-        codeHeuristicsWarning: "Detects TODOs, AI-generated code, hardcoded passwords",
-        viewFullReport: "View Full Report",
+        codeHeuristicsWarning: "Detects TODOs, automated code markers, hardcoded passwords",
+        checkSourceMaps: "Check Source Maps",
+        viewFullReport: "📋 View Full Report",
         clickToViewDetails: "Click an item to view the full report"
     },
     pt: {
@@ -77,8 +76,9 @@ const i18n = {
         highEntropy: "Alta Entropia (Scan Profundo)",
         entropyWarning: "Alto índice de falsos positivos",
         codeHeuristics: "Heurísticas de Código",
-        codeHeuristicsWarning: "Detecta TODOs, código gerado por IA, senhas hardcoded",
-        viewFullReport: "Ver relatório completo",
+        codeHeuristicsWarning: "Detecta TODOs, marcadores de código automatizados, senhas hardcoded",
+        checkSourceMaps: "Verificar Source Maps",
+        viewFullReport: "📋 Ver Relatório Completo",
         clickToViewDetails: "Clique em um item para ver o relatório completo"
     }
 };
@@ -99,20 +99,12 @@ function applyTranslations(lang) {
     document.documentElement.lang = lang === "pt" ? "pt-BR" : "en";
 }
 
-
-// ─── Toggle Configuration ────────────────────────────────────────────
-
-const toggles = ["generics", "specifics", "aws", "checkEnv", "checkGit", "alerts", "checkEndpoints", "highEntropy", "codeHeuristics"];
+const toggles = ["generics", "specifics", "aws", "checkEnv", "checkGit", "alerts", "checkEndpoints", "highEntropy", "codeHeuristics", "appEnabled", "checkSourceMaps"];
 const toggleDefaults = {
-    generics: true,
-    specifics: true,
-    aws: true,
-    checkEnv: false,
-    checkGit: false,
-    alerts: true,
-    checkEndpoints: false,
-    highEntropy: false,
-    codeHeuristics: false,
+    generics: true, specifics: true, aws: true,
+    checkEnv: false, checkGit: false, alerts: true,
+    checkEndpoints: false, highEntropy: false, codeHeuristics: false,
+    appEnabled: true, checkSourceMaps: true,
 };
 
 function getActiveTab(callback) {
@@ -121,7 +113,22 @@ function getActiveTab(callback) {
     });
 }
 
-// Language init
+function getMatchDenyList(callback) {
+    browserAPI.storage.sync.get(["matchDenyList"], function (result) {
+        callback(Array.isArray(result.matchDenyList) ? result.matchDenyList : []);
+    });
+}
+
+function isMatchDenied(matchText, keyName, denyList) {
+    return denyList.some(denied => {
+        if (!denied) return false;
+        const dl = denied.toLowerCase();
+        const kl = keyName.toLowerCase();
+        if (kl === dl || kl.includes(dl)) return true;
+        return matchText === denied || (denied.length > 3 && matchText.includes(denied));
+    });
+}
+
 browserAPI.storage.sync.get(["lang"], function (result) {
     const lang = result.lang || "en";
     document.getElementById("langSelect").value = lang;
@@ -135,37 +142,32 @@ document.getElementById("langSelect").addEventListener("change", function () {
     loadFindings();
 });
 
-// Toggle init
 for (const toggle of toggles) {
     browserAPI.storage.sync.get([toggle], function (result) {
         if (result[toggle] === undefined) {
             document.getElementById(toggle).checked = toggleDefaults[toggle];
             browserAPI.storage.sync.set({ [toggle]: toggleDefaults[toggle] });
+            if (toggle === "appEnabled") updateMainState(toggleDefaults[toggle]);
         } else {
             document.getElementById(toggle).checked = result[toggle] === true;
+            if (toggle === "appEnabled") updateMainState(result[toggle]);
         }
     });
     document.getElementById(toggle).addEventListener('click', function () {
         const value = this.checked;
         browserAPI.storage.sync.set({ [toggle]: value });
+        if (toggle === "appEnabled") updateMainState(value);
     });
 }
 
-
-// ─── Utilities ───────────────────────────────────────────────────────
-
-function htmlEntities(str) {
-    return String(str)
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;')
-        .replace(/"/g, '&quot;');
+function updateMainState(enabled) {
+    document.body.classList.toggle("app-disabled", !enabled);
 }
 
-/**
- * Properly escape a value for CSV (RFC 4180).
- * Wraps in double-quotes if the value contains commas, quotes, or newlines.
- */
+function htmlEntities(str) {
+    return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
 function csvEscape(value) {
     const str = String(value ?? '');
     if (str.includes(',') || str.includes('"') || str.includes('\n') || str.includes('\r')) {
@@ -174,68 +176,57 @@ function csvEscape(value) {
     return str;
 }
 
+function makeFindingId(origin, f, idx) {
+    return "f-" + btoa(unescape(encodeURIComponent(origin + f.key + f.match + f.src))).replace(/[^a-zA-Z0-9]/g, '').substring(0, 24) + idx;
+}
 
-// ─── Deny Lists ──────────────────────────────────────────────────────
+function openFindingsPage(hash) {
+    const url = browserAPI.runtime.getURL("findings.html") + (hash ? "#" + hash : "");
+    browserAPI.tabs.create({ url });
+}
 
 function loadDenyList() {
-    const el = document.getElementById("denyList");
     browserAPI.storage.sync.get(["originDenyList"], function (result) {
-        el.value = (result.originDenyList || []).join(", ");
+        document.getElementById("denyList").value = (result.originDenyList || []).join(", ");
     });
 }
 
 function loadMatchDenyList() {
-    const el = document.getElementById("matchDenyListInput");
     browserAPI.storage.sync.get(["matchDenyList"], function (result) {
-        el.value = (result.matchDenyList || []).join(", ");
+        document.getElementById("matchDenyListInput").value = (result.matchDenyList || []).join(", ");
     });
-}
-
-
-// ─── Findings ────────────────────────────────────────────────────────
-
-function openFindingsPage() {
-    browserAPI.tabs.create({ url: browserAPI.runtime.getURL("findings.html") });
 }
 
 function loadFindings() {
-    const listEl = document.getElementById("findingList");
-    const emptyEl = document.getElementById("findingListEmpty");
     const t = i18n[currentLang] || i18n.en;
     getActiveTab(function (tab) {
-        if (!tab || !tab.url) return;
+        if (!tab?.url) return;
         try {
             const origin = (new URL(tab.url)).origin;
             browserAPI.storage.local.get(["leakedKeys"], function (result) {
-                const keys = result.leakedKeys?.[origin] || [];
-                let htmlList = "";
-                for (const k of keys) {
-                    let keyInfo = k.key + ": " + k.match + " " + t.foundIn + " " + k.src;
-                    if (k.encoded) {
-                        keyInfo += " " + t.decodedFrom + " " + k.encoded.substring(0, 9) + "...";
-                    }
-                    htmlList += '<li class="clickable-item">' + htmlEntities(keyInfo) + "</li>\n";
-                }
-                listEl.innerHTML = htmlList;
-                emptyEl.textContent = t.noFindings;
-                emptyEl.classList.toggle("hidden", keys.length > 0);
+                const allKeys = result.leakedKeys?.[origin] || [];
+                getMatchDenyList(function (denyList) {
+                    const keys = allKeys.filter(k => !isMatchDenied(k.match, k.key, denyList));
+                    let htmlList = "";
+                    keys.forEach((k, idx) => {
+                        const fid = makeFindingId(origin, k, idx);
+                        let keyInfo = k.key + ": " + k.match + " " + t.foundIn + " " + k.src;
+                        if (k.encoded) keyInfo += " " + t.decodedFrom + " " + k.encoded.substring(0, 9) + "...";
+                        htmlList += '<li class="clickable-item" data-finding-id="' + fid + '">' + htmlEntities(keyInfo) + "</li>\n";
+                    });
+                    document.getElementById("findingList").innerHTML = htmlList;
+                    document.getElementById("findingListEmpty").textContent = t.noFindings;
+                    document.getElementById("findingListEmpty").classList.toggle("hidden", keys.length > 0);
+                });
             });
-        } catch (e) {
-            console.error('[Trufflehog] Error loading findings:', e);
-        }
+        } catch (e) { }
     });
 }
 
-
-// ─── Endpoints ───────────────────────────────────────────────────────
-
 function loadEndpoints() {
-    const listEl = document.getElementById("endpointList");
-    const emptyEl = document.getElementById("endpointListEmpty");
     const t = i18n[currentLang] || i18n.en;
-
     getActiveTab(function (tab) {
-        if (!tab || !tab.url) return;
+        if (!tab?.url) return;
         try {
             const origin = (new URL(tab.url)).origin;
             browserAPI.storage.local.get(["endpoints"], function (result) {
@@ -245,18 +236,13 @@ function loadEndpoints() {
                     const epInfo = item.url + " (" + t.foundIn + " " + item.src.split('/').pop() + ")";
                     htmlList += '<li class="clickable-item">' + htmlEntities(epInfo) + "</li>\n";
                 }
-                listEl.innerHTML = htmlList;
-                emptyEl.textContent = t.noEndpoints;
-                emptyEl.classList.toggle("hidden", epList.length > 0);
+                document.getElementById("endpointList").innerHTML = htmlList;
+                document.getElementById("endpointListEmpty").textContent = t.noEndpoints;
+                document.getElementById("endpointListEmpty").classList.toggle("hidden", epList.length > 0);
             });
-        } catch (e) {
-            console.error('[Trufflehog] Error loading endpoints:', e);
-        }
+        } catch (e) { }
     });
 }
-
-
-// ─── Accordion Listeners ─────────────────────────────────────────────
 
 document.querySelectorAll(".accordion").forEach(function (details) {
     details.addEventListener("toggle", function () {
@@ -269,43 +255,27 @@ document.querySelectorAll(".accordion").forEach(function (details) {
     });
 });
 
+document.getElementById("openFullReport").addEventListener("click", () => openFindingsPage());
 
-// ─── CSV Downloads ───────────────────────────────────────────────────
-
-function downloadCSV() {
+document.getElementById("downloadAllFindings").addEventListener("click", function () {
     browserAPI.storage.local.get(["leakedKeys"], function (result) {
         const leakedKeys = result.leakedKeys || {};
         const csvRows = [["Origin", "Source", "Parent URL", "Type", "Match", "Encoded"].map(csvEscape).join(",")];
         for (const origin in leakedKeys) {
-            const findings = leakedKeys[origin];
-            for (const finding of findings) {
-                csvRows.push([
-                    origin,
-                    finding.src,
-                    finding.parentUrl,
-                    finding.key,
-                    finding.match,
-                    finding.encoded || ""
-                ].map(csvEscape).join(","));
+            for (const f of leakedKeys[origin]) {
+                csvRows.push([origin, f.src, f.parentUrl, f.key, f.match, f.encoded || ""].map(csvEscape).join(","));
             }
         }
-        const csvContent = "data:text/csv;charset=utf-8," + csvRows.join("\n");
-        window.open(encodeURI(csvContent));
+        window.open(encodeURI("data:text/csv;charset=utf-8," + csvRows.join("\n")));
     });
-}
-
-document.getElementById("downloadAllFindings").addEventListener("click", downloadCSV);
-
-
-// ─── Clear Findings ──────────────────────────────────────────────────
+});
 
 document.getElementById("clearOriginFindings").addEventListener("click", function () {
     browserAPI.storage.local.get(["leakedKeys"], function (result) {
         const leakedKeys = result.leakedKeys || {};
         getActiveTab(function (tab) {
-            if (tab && tab.url) {
-                const origin = (new URL(tab.url)).origin;
-                leakedKeys[origin] = [];
+            if (tab?.url) {
+                leakedKeys[(new URL(tab.url)).origin] = [];
                 browserAPI.storage.local.set({ leakedKeys });
                 const actionAPI = browserAPI.action || browserAPI.browserAction;
                 if (actionAPI) actionAPI.setBadgeText({ text: '' });
@@ -324,44 +294,27 @@ document.getElementById("clearAllFindings").addEventListener("click", function (
     document.getElementById("findingListEmpty").classList.remove("hidden");
 });
 
-
-// ─── Open Tabs ───────────────────────────────────────────────────────
-
 document.getElementById("openTabs").addEventListener("click", function () {
-    const rawTabList = document.getElementById("tabList").value;
-    const tabList = rawTabList.split(",").map(item => item.trim()).filter(Boolean);
-    browserAPI.runtime.sendMessage({ openTabs: tabList });
+    const list = document.getElementById("tabList").value.split(",").map(item => item.trim()).filter(Boolean);
+    browserAPI.runtime.sendMessage({ openTabs: list });
 });
 
-
-// ─── Deny List Persistence ──────────────────────────────────────────
-
 const denyListElement = document.getElementById("denyList");
-function changeDenyListEvent() {
-    const list = denyListElement.value.split(",").map(item => item.trim()).filter(Boolean);
-    browserAPI.storage.sync.set({ originDenyList: list });
-}
-denyListElement.addEventListener('keyup', changeDenyListEvent);
-denyListElement.addEventListener('paste', changeDenyListEvent);
+denyListElement.oninput = () => {
+    browserAPI.storage.sync.set({ originDenyList: denyListElement.value.split(",").map(item => item.trim()).filter(Boolean) });
+};
 
 const matchDenyListElement = document.getElementById("matchDenyListInput");
-function changeMatchDenyListEvent() {
-    const list = matchDenyListElement.value.split(",").map(item => item.trim()).filter(Boolean);
-    browserAPI.storage.sync.set({ matchDenyList: list });
-}
-matchDenyListElement.addEventListener('keyup', changeMatchDenyListEvent);
-matchDenyListElement.addEventListener('paste', changeMatchDenyListEvent);
-
-
-// ─── Clear Endpoints ─────────────────────────────────────────────────
+matchDenyListElement.oninput = () => {
+    browserAPI.storage.sync.set({ matchDenyList: matchDenyListElement.value.split(",").map(item => item.trim()).filter(Boolean) });
+};
 
 document.getElementById("clearOriginEndpoints").addEventListener("click", function () {
     browserAPI.storage.local.get(["endpoints"], function (result) {
         const endpoints = result.endpoints || {};
         getActiveTab(function (tab) {
-            if (tab && tab.url) {
-                const origin = (new URL(tab.url)).origin;
-                endpoints[origin] = [];
+            if (tab?.url) {
+                endpoints[(new URL(tab.url)).origin] = [];
                 browserAPI.storage.local.set({ endpoints });
                 loadEndpoints();
             }
@@ -369,21 +322,13 @@ document.getElementById("clearOriginEndpoints").addEventListener("click", functi
     });
 });
 
-
-// ─── Navigation to Full Report ───────────────────────────────────────
-
-document.getElementById("openFindingsPage").addEventListener("click", openFindingsPage);
-document.getElementById("openFindingsPageFromEndpoints").addEventListener("click", openFindingsPage);
-
-document.getElementById("findingList").addEventListener("click", function (e) {
-    if (e.target.closest(".clickable-item")) openFindingsPage();
-});
-document.getElementById("endpointList").addEventListener("click", function (e) {
-    if (e.target.closest(".clickable-item")) openFindingsPage();
-});
-
-
-// ─── Endpoint CSV Download ───────────────────────────────────────────
+document.getElementById("findingList").onclick = (e) => {
+    const item = e.target.closest(".clickable-item");
+    if (item) openFindingsPage(item.getAttribute("data-finding-id"));
+};
+document.getElementById("endpointList").onclick = (e) => {
+    if (e.target.closest(".clickable-item")) openFindingsPage("endpointsSection");
+};
 
 document.getElementById("downloadEndpointsCsv").addEventListener("click", function () {
     browserAPI.storage.local.get(["endpoints"], function (result) {
@@ -394,7 +339,6 @@ document.getElementById("downloadEndpointsCsv").addEventListener("click", functi
                 csvRows.push([origin, ep.url, ep.src].map(csvEscape).join(","));
             }
         }
-        const csvContent = "data:text/csv;charset=utf-8," + csvRows.join("\n");
-        window.open(encodeURI(csvContent));
+        window.open(encodeURI("data:text/csv;charset=utf-8," + csvRows.join("\n")));
     });
 });

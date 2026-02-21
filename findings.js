@@ -11,7 +11,13 @@ const i18n = {
         foundIn: "Found in",
         parentPage: "Parent page",
         decodedFrom: "Decoded from Base64",
-        sourceFile: "Source"
+        sourceFile: "Source",
+        deniedSection: "Denied (hidden from popup)",
+        searchPlaceholder: "🔍 Search findings and endpoints...",
+        exportTxt: "📄 Export Keys (.txt)",
+        exportEndpointsTxt: "📄 Export Endpoints (.txt)",
+        selectAll: "☑ Select All",
+        deselectAll: "☐ Deselect All"
     },
     pt: {
         navBack: "← Fechar",
@@ -23,17 +29,33 @@ const i18n = {
         foundIn: "Encontrado em",
         parentPage: "Página de origem",
         decodedFrom: "Decodificado de Base64",
-        sourceFile: "Fonte"
+        sourceFile: "Fonte",
+        deniedSection: "Negados (ocultos do popup)",
+        searchPlaceholder: "🔍 Pesquisar achados e endpoints...",
+        exportTxt: "📄 Exportar Chaves (.txt)",
+        exportEndpointsTxt: "📄 Exportar Endpoints (.txt)",
+        selectAll: "☑ Selecionar Todos",
+        deselectAll: "☐ Desmarcar Todos"
     }
 };
 
 function htmlEscape(str) {
     if (!str) return '';
-    return String(str)
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;')
-        .replace(/"/g, '&quot;');
+    return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
+function makeFindingId(origin, f, idx) {
+    return "f-" + btoa(unescape(encodeURIComponent(origin + f.key + f.match + f.src))).replace(/[^a-zA-Z0-9]/g, '').substring(0, 24) + idx;
+}
+
+function isMatchDenied(matchText, keyName, denyList) {
+    return denyList.some(denied => {
+        if (!denied) return false;
+        const dl = denied.toLowerCase();
+        const kl = keyName.toLowerCase();
+        if (kl === dl || kl.includes(dl)) return true;
+        return matchText === denied || (denied.length > 3 && matchText.includes(denied));
+    });
 }
 
 function applyTranslations(lang) {
@@ -42,65 +64,192 @@ function applyTranslations(lang) {
         const key = el.getAttribute("data-i18n");
         if (t[key]) el.textContent = t[key];
     });
+    document.querySelectorAll("[data-i18n-placeholder]").forEach(el => {
+        const key = el.getAttribute("data-i18n-placeholder");
+        if (t[key]) el.placeholder = t[key];
+    });
     const sub = document.getElementById("reportSubtitle");
     if (sub && t.reportSubtitle) sub.textContent = t.reportSubtitle;
     const nav = document.getElementById("navBack");
     if (nav && t.navBack) nav.textContent = t.navBack;
 }
 
+function renderFindingCard(f, t, id, denied) {
+    const cls = denied ? "finding-card denied-card" : "finding-card";
+    let html = '<div class="' + cls + '" id="' + id + '">';
+    html += '<input type="checkbox" class="card-check finding-check">';
+    html += '<div class="card-body">';
+    html += '<div class="type">' + htmlEscape(f.key);
+    if (denied) html += '<span class="denied-label">denied</span>';
+    html += '</div>';
+    html += '<div class="match">' + htmlEscape(f.match) + '</div>';
+    html += '<div class="meta">' + t.foundIn + ': ' + htmlEscape(f.src) + '</div>';
+    html += '<div class="meta">' + t.parentPage + ': ' + htmlEscape(f.parentUrl) + '</div>';
+    if (f.encoded) html += '<div class="meta">' + t.decodedFrom + ': ' + htmlEscape(String(f.encoded).substring(0, 30)) + '...</div>';
+    html += '</div></div>';
+    return html;
+}
+
 function render() {
-    browserAPI.storage.sync.get(["lang"], function (langResult) {
-        const lang = langResult.lang || "en";
+    browserAPI.storage.sync.get(["lang", "matchDenyList"], function (syncResult) {
+        const lang = syncResult.lang || "en";
         applyTranslations(lang);
         const t = i18n[lang] || i18n.en;
+        const denyList = Array.isArray(syncResult.matchDenyList) ? syncResult.matchDenyList : [];
 
         browserAPI.storage.local.get(["leakedKeys"], function (result) {
             const leakedKeys = result.leakedKeys || {};
             const findingsEl = document.getElementById("findingsContent");
-            let findingsHtml = "";
+            let html = "";
 
             for (const origin in leakedKeys) {
                 const findings = leakedKeys[origin];
                 if (!findings.length) continue;
-                findingsHtml += '<div class="origin-block"><h3>' + htmlEscape(origin) + '</h3>';
-                for (const f of findings) {
-                    findingsHtml += '<div class="finding-card">';
-                    findingsHtml += '<div class="type">' + htmlEscape(f.key) + '</div>';
-                    findingsHtml += '<div class="match">' + htmlEscape(f.match) + '</div>';
-                    findingsHtml += '<div class="meta">' + t.foundIn + ': ' + htmlEscape(f.src) + '</div>';
-                    findingsHtml += '<div class="meta">' + t.parentPage + ': ' + htmlEscape(f.parentUrl) + '</div>';
-                    if (f.encoded) findingsHtml += '<div class="meta">' + t.decodedFrom + ': ' + htmlEscape(String(f.encoded).substring(0, 30)) + '...</div>';
-                    findingsHtml += '</div>';
+
+                const visible = [];
+                const denied = [];
+                findings.forEach((f, idx) => {
+                    const fid = makeFindingId(origin, f, idx);
+                    if (isMatchDenied(f.match, f.key, denyList)) {
+                        denied.push({ f, fid });
+                    } else {
+                        visible.push({ f, fid });
+                    }
+                });
+
+                if (!visible.length && !denied.length) continue;
+
+                const count = visible.length + (denied.length ? " + " + denied.length + " denied" : "");
+                html += '<details class="origin-dropdown" open>';
+                html += '<summary class="origin-summary">' + htmlEscape(origin) + '<span class="badge">(' + count + ')</span></summary>';
+                html += '<div class="origin-body">';
+
+                for (const item of visible) {
+                    html += renderFindingCard(item.f, t, item.fid, false);
                 }
-                findingsHtml += '</div>';
+
+                if (denied.length) {
+                    html += '<div class="denied-separator">' + t.deniedSection + ' (' + denied.length + ')</div>';
+                    for (const item of denied) {
+                        html += renderFindingCard(item.f, t, item.fid, true);
+                    }
+                }
+
+                html += '</div></details>';
             }
-            findingsEl.innerHTML = findingsHtml || '<div class="empty-msg">' + t.noFindings + '</div>';
+            findingsEl.innerHTML = html || '<div class="empty-msg">' + t.noFindings + '</div>';
         });
 
         browserAPI.storage.local.get(["endpoints"], function (result) {
             const endpoints = result.endpoints || {};
             const epEl = document.getElementById("endpointsContent");
-            let epHtml = "";
+            let html = "";
 
             for (const origin in endpoints) {
                 const list = endpoints[origin];
                 if (!list.length) continue;
-                epHtml += '<div class="origin-block"><h3>' + htmlEscape(origin) + '</h3>';
+
+                html += '<details class="origin-dropdown">';
+                html += '<summary class="origin-summary">' + htmlEscape(origin) + '<span class="badge">(' + list.length + ')</span></summary>';
+                html += '<div class="origin-body">';
+
                 for (const ep of list) {
-                    epHtml += '<div class="endpoint-card">';
-                    epHtml += '<div class="url">' + htmlEscape(ep.url) + '</div>';
-                    epHtml += '<div class="src">' + t.sourceFile + ': ' + htmlEscape(ep.src) + '</div>';
-                    epHtml += '</div>';
+                    html += '<div class="endpoint-card">';
+                    html += '<input type="checkbox" class="card-check endpoint-check" checked>';
+                    html += '<div class="card-body">';
+                    html += '<div class="url">' + htmlEscape(ep.url) + '</div>';
+                    html += '<div class="src">' + t.sourceFile + ': ' + htmlEscape(ep.src) + '</div>';
+                    html += '</div></div>';
                 }
-                epHtml += '</div>';
+
+                html += '</div></details>';
             }
-            epEl.innerHTML = epHtml || '<div class="empty-msg">' + t.noEndpoints + '</div>';
+            epEl.innerHTML = html || '<div class="empty-msg">' + t.noEndpoints + '</div>';
+
+            scrollToHash();
         });
     });
 }
 
-document.getElementById("navBack").addEventListener("click", function () {
-    window.close();
+function scrollToHash() {
+    const hash = window.location.hash.substring(1);
+    if (!hash) return;
+    setTimeout(function () {
+        const target = document.getElementById(hash);
+        if (target) {
+            const parent = target.closest('.origin-dropdown');
+            if (parent) parent.open = true;
+            target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            target.classList.add('highlight-card');
+        }
+    }, 200);
+}
+
+document.getElementById("searchBar").addEventListener("input", function () {
+    const query = this.value.toLowerCase().trim();
+    document.querySelectorAll(".finding-card, .endpoint-card").forEach(card => {
+        const text = card.textContent.toLowerCase();
+        card.classList.toggle("hidden-by-search", query && !text.includes(query));
+    });
+    document.querySelectorAll(".origin-dropdown").forEach(dropdown => {
+        const visibleCards = dropdown.querySelectorAll(".finding-card:not(.hidden-by-search), .endpoint-card:not(.hidden-by-search)");
+        dropdown.classList.toggle("hidden-origin", query && visibleCards.length === 0);
+        if (query && visibleCards.length > 0) dropdown.open = true;
+    });
 });
 
+function downloadTxt(filename, content) {
+    const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    a.click();
+    URL.revokeObjectURL(url);
+}
+
+document.getElementById('exportFindingsTxt').addEventListener('click', function () {
+    const cards = document.querySelectorAll('#findingsSection .finding-card:not(.denied-card)');
+    const lines = [];
+    cards.forEach(card => {
+        if (card.classList.contains('hidden-by-search')) return;
+        const dropdown = card.closest('.origin-dropdown');
+        if (dropdown && dropdown.classList.contains('hidden-origin')) return;
+        const check = card.querySelector('.finding-check');
+        if (check && !check.checked) return;
+        const matchEl = card.querySelector('.match');
+        if (matchEl) lines.push(matchEl.textContent.trim());
+    });
+    downloadTxt('trufflehog_keys.txt', lines.join('\n'));
+});
+
+document.getElementById('exportEndpointsTxt').addEventListener('click', function () {
+    const cards = document.querySelectorAll('#endpointsSection .endpoint-card');
+    const lines = [];
+    cards.forEach(card => {
+        if (card.classList.contains('hidden-by-search')) return;
+        const dropdown = card.closest('.origin-dropdown');
+        if (dropdown && dropdown.classList.contains('hidden-origin')) return;
+        const check = card.querySelector('.endpoint-check');
+        if (check && !check.checked) return;
+        const urlEl = card.querySelector('.url');
+        if (urlEl) lines.push(urlEl.textContent.trim());
+    });
+    downloadTxt('trufflehog_endpoints.txt', lines.join('\n'));
+});
+
+document.getElementById('selectAllFindings').addEventListener('click', function () {
+    document.querySelectorAll('.finding-check').forEach(cb => cb.checked = true);
+});
+document.getElementById('deselectAllFindings').addEventListener('click', function () {
+    document.querySelectorAll('.finding-check').forEach(cb => cb.checked = false);
+});
+document.getElementById('selectAllEndpoints').addEventListener('click', function () {
+    document.querySelectorAll('.endpoint-check').forEach(cb => cb.checked = true);
+});
+document.getElementById('deselectAllEndpoints').addEventListener('click', function () {
+    document.querySelectorAll('.endpoint-check').forEach(cb => cb.checked = false);
+});
+
+document.getElementById("navBack").onclick = () => window.close();
 render();
