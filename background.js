@@ -237,7 +237,7 @@ const updateTabAndAlert = function (finding) {
                 ? key + ": " + match + " found in " + src + " decoded from " + fromEncoded.substring(0, 9) + "..."
                 : key + ": " + match + " found in " + src;
             if (browserAPI.notifications) {
-                browserAPI.notifications.create({ type: "basic", title: "Trufflehog - Credential Found", message: msg });
+                browserAPI.notifications.create({ type: "basic", iconUrl: "assets/icon128.png", title: "Trufflehog - Credential Found", message: msg });
             }
         }
     });
@@ -319,7 +319,7 @@ const checkForGitDir = function (data, url) {
     if (data.startsWith("[core]")) {
         const msg = ".git dir found in " + url + " - feature to check this for secrets not supported";
         if (browserAPI.notifications) {
-            browserAPI.notifications.create({ type: "basic", title: "Trufflehog", message: msg });
+            browserAPI.notifications.create({ type: "basic", iconUrl: "assets/icon128.png", title: "Trufflehog", message: msg });
         }
     }
 };
