@@ -16,8 +16,7 @@ const i18n = {
         searchPlaceholder: "🔍 Search findings and endpoints...",
         exportTxt: "📄 Export Keys (.txt)",
         exportEndpointsTxt: "📄 Export Endpoints (.txt)",
-        selectAll: "☑ Select All",
-        deselectAll: "☐ Deselect All"
+        selectAll: "☑ Select All"
     },
     pt: {
         navBack: "← Fechar",
@@ -34,8 +33,7 @@ const i18n = {
         searchPlaceholder: "🔍 Pesquisar achados e endpoints...",
         exportTxt: "📄 Exportar Chaves (.txt)",
         exportEndpointsTxt: "📄 Exportar Endpoints (.txt)",
-        selectAll: "☑ Selecionar Todos",
-        deselectAll: "☐ Desmarcar Todos"
+        selectAll: "☑ Selecionar Todos"
     }
 };
 
@@ -121,7 +119,7 @@ function render() {
 
                 const count = visible.length + (denied.length ? " + " + denied.length + " denied" : "");
                 html += '<details class="origin-dropdown" open>';
-                html += '<summary class="origin-summary">' + htmlEscape(origin) + '<span class="badge">(' + count + ')</span></summary>';
+                html += '<summary class="origin-summary">' + htmlEscape(origin) + '<span class="badge" data-original-count="' + count + '">(' + count + ')</span></summary>';
                 html += '<div class="origin-body">';
 
                 for (const item of visible) {
@@ -150,7 +148,7 @@ function render() {
                 if (!list.length) continue;
 
                 html += '<details class="origin-dropdown">';
-                html += '<summary class="origin-summary">' + htmlEscape(origin) + '<span class="badge">(' + list.length + ')</span></summary>';
+                html += '<summary class="origin-summary">' + htmlEscape(origin) + '<span class="badge" data-original-count="' + list.length + '">(' + list.length + ')</span></summary>';
                 html += '<div class="origin-body">';
 
                 for (const ep of list) {
@@ -167,6 +165,7 @@ function render() {
             epEl.innerHTML = html || '<div class="empty-msg">' + t.noEndpoints + '</div>';
 
             scrollToHash();
+            updateSelectedCounts();
         });
     });
 }
@@ -185,6 +184,36 @@ function scrollToHash() {
     }, 200);
 }
 
+function updateSelectedCounts() {
+    let findingsCount = 0;
+    document.querySelectorAll('#findingsSection .finding-card:not(.hidden-by-search):not(.denied-card)').forEach(card => {
+        const dropdown = card.closest('.origin-dropdown');
+        if (dropdown && !dropdown.classList.contains('hidden-origin')) {
+            const check = card.querySelector('.finding-check');
+            if (check && check.checked) findingsCount++;
+        }
+    });
+    const fCountEl = document.getElementById('findingsCount');
+    if (fCountEl) fCountEl.textContent = findingsCount > 0 ? ` (${findingsCount})` : '';
+
+    let endpointsCount = 0;
+    document.querySelectorAll('#endpointsSection .endpoint-card:not(.hidden-by-search)').forEach(card => {
+        const dropdown = card.closest('.origin-dropdown');
+        if (dropdown && !dropdown.classList.contains('hidden-origin')) {
+            const check = card.querySelector('.endpoint-check');
+            if (check && check.checked) endpointsCount++;
+        }
+    });
+    const eCountEl = document.getElementById('endpointsCount');
+    if (eCountEl) eCountEl.textContent = endpointsCount > 0 ? ` (${endpointsCount})` : '';
+}
+
+document.addEventListener('change', function (e) {
+    if (e.target.classList.contains('finding-check') || e.target.classList.contains('endpoint-check')) {
+        updateSelectedCounts();
+    }
+});
+
 document.getElementById("searchBar").addEventListener("input", function () {
     const query = this.value.toLowerCase().trim();
     document.querySelectorAll(".finding-card, .endpoint-card").forEach(card => {
@@ -195,7 +224,17 @@ document.getElementById("searchBar").addEventListener("input", function () {
         const visibleCards = dropdown.querySelectorAll(".finding-card:not(.hidden-by-search), .endpoint-card:not(.hidden-by-search)");
         dropdown.classList.toggle("hidden-origin", query && visibleCards.length === 0);
         if (query && visibleCards.length > 0) dropdown.open = true;
+
+        const badge = dropdown.querySelector('.badge');
+        if (badge) {
+            if (query) {
+                badge.textContent = `(${visibleCards.length})`;
+            } else {
+                badge.textContent = `(${badge.getAttribute('data-original-count')})`;
+            }
+        }
     });
+    updateSelectedCounts();
 });
 
 function downloadTxt(filename, content) {
@@ -239,16 +278,25 @@ document.getElementById('exportEndpointsTxt').addEventListener('click', function
 });
 
 document.getElementById('selectAllFindings').addEventListener('click', function () {
-    document.querySelectorAll('.finding-check').forEach(cb => cb.checked = true);
+    const checkboxes = Array.from(document.querySelectorAll('.finding-check')).filter(cb => {
+        const card = cb.closest('.finding-card');
+        const dropdown = card ? card.closest('.origin-dropdown') : null;
+        return card && !card.classList.contains('hidden-by-search') && (!dropdown || !dropdown.classList.contains('hidden-origin'));
+    });
+    const allChecked = checkboxes.length > 0 && checkboxes.every(cb => cb.checked);
+    checkboxes.forEach(cb => cb.checked = !allChecked);
+    updateSelectedCounts();
 });
-document.getElementById('deselectAllFindings').addEventListener('click', function () {
-    document.querySelectorAll('.finding-check').forEach(cb => cb.checked = false);
-});
+
 document.getElementById('selectAllEndpoints').addEventListener('click', function () {
-    document.querySelectorAll('.endpoint-check').forEach(cb => cb.checked = true);
-});
-document.getElementById('deselectAllEndpoints').addEventListener('click', function () {
-    document.querySelectorAll('.endpoint-check').forEach(cb => cb.checked = false);
+    const checkboxes = Array.from(document.querySelectorAll('.endpoint-check')).filter(cb => {
+        const card = cb.closest('.endpoint-card');
+        const dropdown = card ? card.closest('.origin-dropdown') : null;
+        return card && !card.classList.contains('hidden-by-search') && (!dropdown || !dropdown.classList.contains('hidden-origin'));
+    });
+    const allChecked = checkboxes.length > 0 && checkboxes.every(cb => cb.checked);
+    checkboxes.forEach(cb => cb.checked = !allChecked);
+    updateSelectedCounts();
 });
 
 document.getElementById("navBack").onclick = () => window.close();
